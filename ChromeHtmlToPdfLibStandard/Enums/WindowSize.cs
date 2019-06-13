@@ -25,10 +25,11 @@
 //
 
 // ReSharper disable InconsistentNaming
+
 namespace ChromeHtmlToPdfLib.Enums
 {
     /// <summary>
-    /// The default Window sizes
+    ///     The default Window sizes
     /// </summary>
     public enum WindowSize
     {

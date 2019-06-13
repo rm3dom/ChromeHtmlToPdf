@@ -30,45 +30,51 @@ using Newtonsoft.Json;
 namespace ChromeHtmlToPdfLib.Protocol
 {
     /// <summary>
-    /// The JSON message that is sent to Chrome
+    ///     The JSON message that is sent to Chrome
     /// </summary>
     public class Message : MessageBase
     {
-        #region Properties
-        /// <summary>
-        /// The method executed by Chrome
-        /// </summary>
-        [JsonProperty("method")]
-        public string Method { get; set; }
-
-        /// <summary>
-        /// The parameters that we want to feed into Chrome
-        /// </summary>
-        [JsonProperty("params")]
-        public Dictionary<string, object> Parameters { get; set; }
-        #endregion
-
         #region Constructor
+
         /// <summary>
-        /// Creates this object and sets it's needed properties
+        ///     Creates this object and sets it's needed properties
         /// </summary>
         public Message()
         {
             Id = 1;
             Parameters = new Dictionary<string, object>();
         }
+
         #endregion
 
         #region AddParaneter
+
         /// <summary>
-        /// Add's a parameter to <see cref="Parameters"/>
+        ///     Add's a parameter to <see cref="Parameters" />
         /// </summary>
         /// <param name="name">The name</param>
         /// <param name="value">The value</param>
         public void AddParameter(string name, object value)
         {
-            Parameters.Add(name, value);   
+            Parameters.Add(name, value);
         }
+
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        ///     The method executed by Chrome
+        /// </summary>
+        [JsonProperty("method")]
+        public string Method { get; set; }
+
+        /// <summary>
+        ///     The parameters that we want to feed into Chrome
+        /// </summary>
+        [JsonProperty("params")]
+        public Dictionary<string, object> Parameters { get; set; }
+
         #endregion
     }
 }

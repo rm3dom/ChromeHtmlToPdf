@@ -28,6 +28,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Web;
+using ChromeHtmlToPdfLib.EncodingTools;
 
 namespace ChromeHtmlToPdfLib.Helpers
 {
@@ -36,7 +37,104 @@ namespace ChromeHtmlToPdfLib.Helpers
     /// </summary>
     internal class PreWrapper
     {
+        #region Constructor
+
+        /// <summary>
+        ///     Makes this object and sets its needed properties
+        /// </summary>
+        /// <param name="tempDirectory">When set then this directory will be used for temporary files</param>
+        /// <param name="logStream"></param>
+        public PreWrapper(DirectoryInfo tempDirectory = null,
+            Stream logStream = null)
+        {
+            _tempDirectory = tempDirectory;
+            _logStream = logStream;
+        }
+
+        #endregion
+
+        #region WrapFile
+
+        /// <summary>
+        ///     Wraps the given <paramref name="inputFile" /> in HTML pre tags
+        /// </summary>
+        /// <param name="inputFile">The input file</param>
+        /// <param name="encoding">The encoding used in the input file</param>
+        /// <returns>The wrapped HTML file</returns>
+        public string WrapFile(string inputFile, Encoding encoding)
+        {
+            var temp = Path.GetFileName(inputFile) ?? string.Empty;
+            var title = HttpUtility.HtmlEncode(temp);
+            var tempFile = GetTempFile;
+
+            WriteToLog($"Reading text file '{inputFile}'");
+
+            var streamReader = encoding != null
+                ? new StreamReader(inputFile, encoding)
+                : new Detector().OpenTextFile(inputFile);
+
+            WriteToLog($"File is '{streamReader.CurrentEncoding.WebName}' encoded");
+
+            var writeEncoding = new UnicodeEncoding(!BitConverter.IsLittleEndian, true);
+
+            using (var writer = new StreamWriter(tempFile, false, writeEncoding))
+            using (streamReader)
+            {
+                writer.WriteLine("<html>");
+                writer.WriteLine("<head>");
+                writer.WriteLine($"   <meta charset=\"{writeEncoding.WebName}\">");
+                writer.WriteLine($"<title>{title}</title>");
+                writer.WriteLine("<style>");
+                writer.WriteLine("  pre {");
+                writer.WriteLine($"  white-space: {WhiteSpace};");
+                if (!string.IsNullOrWhiteSpace(FontFamily))
+                    writer.WriteLine($"  font-family: {FontFamily};");
+                if (!string.IsNullOrWhiteSpace(FontFamily))
+                    writer.WriteLine($"  font-style: {FontStyle};");
+                if (!string.IsNullOrWhiteSpace(FontFamily))
+                    writer.WriteLine($"  font-size: {FontSize};");
+                writer.WriteLine("  }");
+                writer.WriteLine("</style>");
+                writer.WriteLine("</head>");
+                writer.WriteLine("<body>");
+                writer.WriteLine("<pre>");
+
+                while (!streamReader.EndOfStream)
+                    writer.WriteLine(streamReader.ReadLine());
+
+                writer.WriteLine("</pre>");
+                writer.WriteLine("</body>");
+                writer.WriteLine("</html>");
+            }
+
+            WriteToLog($"File pre wrapped and written to temporary file '{tempFile}'");
+
+            return tempFile;
+        }
+
+        #endregion
+
+        #region WriteToLog
+
+        /// <summary>
+        ///     Writes a line and linefeed to the <see cref="_logStream" />
+        /// </summary>
+        /// <param name="message">The message to write</param>
+        private void WriteToLog(string message)
+        {
+            if (_logStream == null) return;
+            var line = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fff") +
+                       (InstanceId != null ? " - " + InstanceId : string.Empty) + " - " +
+                       message + Environment.NewLine;
+            var bytes = Encoding.UTF8.GetBytes(line);
+            _logStream.Write(bytes, 0, bytes.Length);
+            _logStream.Flush();
+        }
+
+        #endregion
+
         #region Fields
+
         /// <summary>
         ///     When set then logging is written to this stream
         /// </summary>
@@ -52,9 +150,11 @@ namespace ChromeHtmlToPdfLib.Helpers
         ///     The temp folder
         /// </summary>
         private readonly DirectoryInfo _tempDirectory;
+
         #endregion
 
         #region Properties
+
         /// <summary>
         ///     When set then this option will be used for white space wrapping
         /// </summary>
@@ -93,95 +193,7 @@ namespace ChromeHtmlToPdfLib.Helpers
                 return Path.Combine(_tempDirectory?.FullName ?? Path.GetTempPath(), tempFile);
             }
         }
-        #endregion
 
-        #region Constructor
-        /// <summary>
-        ///     Makes this object and sets its needed properties
-        /// </summary>
-        /// <param name="tempDirectory">When set then this directory will be used for temporary files</param>
-        /// <param name="logStream"></param>
-        public PreWrapper(DirectoryInfo tempDirectory = null,
-                          Stream logStream = null)
-        {
-            _tempDirectory = tempDirectory;
-            _logStream = logStream;
-        }
-        #endregion
-
-        #region WrapFile
-        /// <summary>
-        ///     Wraps the given <paramref name="inputFile"/> in HTML pre tags
-        /// </summary>
-        /// <param name="inputFile">The input file</param>
-        /// <param name="encoding">The encoding used in the input file</param>
-        /// <returns>The wrapped HTML file</returns>
-        public string WrapFile(string inputFile, Encoding encoding)
-        {
-            var temp = Path.GetFileName(inputFile) ?? string.Empty;
-            var title = HttpUtility.HtmlEncode(temp);
-            var tempFile = GetTempFile;
-            
-            WriteToLog($"Reading text file '{inputFile}'");
-
-            var streamReader = encoding != null
-                ? new StreamReader(inputFile, encoding)
-                : new EncodingTools.Detector().OpenTextFile(inputFile);
-
-            WriteToLog($"File is '{streamReader.CurrentEncoding.WebName}' encoded");
-
-            var writeEncoding = new UnicodeEncoding(!BitConverter.IsLittleEndian, true);
-
-            using (var writer = new StreamWriter(tempFile, false, writeEncoding))
-            using (streamReader)
-            {
-                writer.WriteLine("<html>");
-                writer.WriteLine("<head>");
-                writer.WriteLine($"   <meta charset=\"{writeEncoding.WebName}\">");
-                writer.WriteLine($"<title>{title}</title>");
-                writer.WriteLine("<style>");
-                writer.WriteLine("  pre {");
-                writer.WriteLine($"  white-space: { WhiteSpace };");
-                if (!string.IsNullOrWhiteSpace(FontFamily))
-                    writer.WriteLine($"  font-family: { FontFamily };");
-                if (!string.IsNullOrWhiteSpace(FontFamily))
-                    writer.WriteLine($"  font-style: { FontStyle };");
-                if (!string.IsNullOrWhiteSpace(FontFamily))
-                    writer.WriteLine($"  font-size: { FontSize };");
-                writer.WriteLine("  }");
-                writer.WriteLine("</style>");
-                writer.WriteLine("</head>");
-                writer.WriteLine("<body>");
-                writer.WriteLine("<pre>");
-
-                while (!streamReader.EndOfStream)
-                    writer.WriteLine(streamReader.ReadLine());
-
-                writer.WriteLine("</pre>");
-                writer.WriteLine("</body>");
-                writer.WriteLine("</html>");
-            }
-
-            WriteToLog($"File pre wrapped and written to temporary file '{tempFile}'");
-
-            return tempFile;
-        }
-        #endregion
-
-        #region WriteToLog
-        /// <summary>
-        ///     Writes a line and linefeed to the <see cref="_logStream" />
-        /// </summary>
-        /// <param name="message">The message to write</param>
-        private void WriteToLog(string message)
-        {
-            if (_logStream == null) return;
-            var line = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fff") + (InstanceId != null ? " - " + InstanceId : string.Empty) + " - " +
-                       message + Environment.NewLine;
-            var bytes = Encoding.UTF8.GetBytes(line);
-            _logStream.Write(bytes, 0, bytes.Length);
-            _logStream.Flush();
-        }
         #endregion
     }
 }

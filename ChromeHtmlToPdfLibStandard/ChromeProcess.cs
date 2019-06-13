@@ -4,10 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Threading;
-using System.Xml;
 using ChromeHtmlToPdfLib.Enums;
 using ChromeHtmlToPdfLib.Exceptions;
 using ChromeHtmlToPdfLib.Helpers;
@@ -16,37 +16,14 @@ namespace ChromeHtmlToPdfLib
 {
     public class ChromeProcess : IDisposable
     {
-        const string UniqueEnviromentKey = "ChromePdfConverter";
+        private const string UniqueEnviromentKey = "ChromePdfConverter";
+
         /// <summary>
         ///     Chrome with it's full path
         /// </summary>
         private readonly string _chromeExeFileName;
-        /// <summary>
-        ///     The process id under which Chrome is running
-        /// </summary>
-        private Process _chromeProcess;
-        
-        /// <summary>
-        ///     Keeps track is we already disposed our resources
-        /// </summary>
-        private bool _disposed;
-        
-        /// <summary>
-        ///     Returns the location of Chrome
-        /// </summary>
-        private string _chromeLocation;
-        
-        
-        /// <summary>
-        ///     The timeout for a conversion
-        /// </summary>
-        private int? _conversionTimeout;
-        
-        
-        /// <summary>
-        ///     Flag to wait in code when starting Chrome
-        /// </summary>
-        private ManualResetEvent _chromeWaitEvent;
+
+        private readonly object mutex = new object();
 
         /// <summary>
         ///     Exceptions thrown from a Chrome startup event
@@ -54,20 +31,42 @@ namespace ChromeHtmlToPdfLib
         private Exception _chromeEventException;
 
         /// <summary>
-        /// Optional path to the chrome executable;
+        ///     Returns the location of Chrome
         /// </summary>
-        public string ChromeLocationDirectory { get; set; }  = "";
+        private string _chromeLocation;
 
         /// <summary>
-        ///     The user to use when starting Chrome, when blank then Chrome is started under the code running user
+        ///     The process id under which Chrome is running
         /// </summary>
-        private string _userName;
+        private Process _chromeProcess;
+
+
+        /// <summary>
+        ///     Flag to wait in code when starting Chrome
+        /// </summary>
+        private ManualResetEvent _chromeWaitEvent;
+
+
+        /// <summary>
+        ///     The timeout for a conversion
+        /// </summary>
+        private int? _conversionTimeout;
+
+        /// <summary>
+        ///     Keeps track is we already disposed our resources
+        /// </summary>
+        private bool _disposed;
 
         /// <summary>
         ///     The password for the <see cref="_userName" />
         /// </summary>
         private string _password;
-        
+
+        /// <summary>
+        ///     The proxy bypass list
+        /// </summary>
+        private string _proxyBypassList;
+
 
         /// <summary>
         ///     A proxy server
@@ -75,23 +74,14 @@ namespace ChromeHtmlToPdfLib
         private string _proxyServer;
 
         /// <summary>
-        ///     The proxy bypass list
+        ///     The user to use when starting Chrome, when blank then Chrome is started under the code running user
         /// </summary>
-        private string _proxyBypassList;
+        private string _userName;
 
         /// <summary>
         ///     A web proxy
         /// </summary>
         private WebProxy _webProxy;
-
-        public Uri InstanceHandle { get; private set; }
-
-        private readonly object mutex = new object(); 
-        
-        /// <summary>
-        ///     Returns the list with default arguments that are send to Chrome when starting
-        /// </summary>
-        public List<string> DefaultArguments { get; private set; }
 
 
         public ChromeProcess(string chromeExeFileName = null, string userProfile = null)
@@ -116,11 +106,18 @@ namespace ChromeHtmlToPdfLib
                 SetDefaultArgument("--user-data-dir", $"\"{userProfileDirectory.FullName}\"");
             }
         }
-        
-        ~ChromeProcess()
-        {
-            Dispose();
-        }
+
+        /// <summary>
+        ///     Optional path to the chrome executable;
+        /// </summary>
+        public string ChromeLocationDirectory { get; set; } = "";
+
+        public Uri InstanceHandle { get; private set; }
+
+        /// <summary>
+        ///     Returns the list with default arguments that are send to Chrome when starting
+        /// </summary>
+        public List<string> DefaultArguments { get; private set; }
 
         /// <summary>
         ///     Returns the path to Chrome, <c>null</c> will be returned if Chrome could not be found
@@ -135,7 +132,7 @@ namespace ChromeHtmlToPdfLib
 
                 var currentPath =
                     // ReSharper disable once AssignNullToNotNullAttribute
-                    new Uri(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().GetName().CodeBase)).LocalPath;
+                    new Uri(Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetName().CodeBase)).LocalPath;
 
                 // ReSharper disable once AssignNullToNotNullAttribute
                 var chrome = Path.Combine(currentPath, "chrome.exe");
@@ -161,11 +158,10 @@ namespace ChromeHtmlToPdfLib
                     return _chromeLocation;
                 }
 
-                throw new ApplicationException("Unable to locate chrome, try setting ChromeLocationDirectory");
+                throw new ChromeException("Unable to locate chrome, try setting ChromeLocationDirectory");
             }
         }
-        
-        
+
 
         /// <summary>
         ///     Returns <c>true</c> when Chrome is running
@@ -185,14 +181,64 @@ namespace ChromeHtmlToPdfLib
                 }
             }
         }
-        
+
+
+        /// <summary>
+        ///     Returns a <see cref="WebProxy" /> object
+        /// </summary>
+        public WebProxy WebProxy
+        {
+            get
+            {
+                if (_webProxy != null)
+                    return _webProxy;
+
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(_proxyServer))
+                        return null;
+
+                    NetworkCredential networkCredential = null;
+
+                    string[] bypassList = null;
+
+                    if (_proxyBypassList != null)
+                        bypassList = _proxyBypassList.Split(';');
+
+                    if (!string.IsNullOrWhiteSpace(_userName))
+                    {
+                        string userName = null;
+                        string domain = null;
+
+                        if (_userName.Contains("\\"))
+                        {
+                            domain = _userName.Split('\\')[0];
+                            userName = _userName.Split('\\')[1];
+                        }
+
+                        networkCredential = !string.IsNullOrWhiteSpace(domain)
+                            ? new NetworkCredential(userName, _password, domain)
+                            : new NetworkCredential(userName, _password);
+                    }
+
+                    return networkCredential != null
+                        ? _webProxy = new WebProxy(_proxyServer, true, bypassList, networkCredential)
+                        : _webProxy = new WebProxy(_proxyServer, true, bypassList);
+                }
+                catch (Exception exception)
+                {
+                    throw new Exception("Could not configure web proxy", exception);
+                }
+            }
+        }
+
         public void Dispose()
         {
             if (_disposed)
                 return;
-            
+
             _disposed = true;
-            
+
             if (!IsChromeRunning)
             {
                 _chromeProcess = null;
@@ -206,8 +252,13 @@ namespace ChromeHtmlToPdfLib
 
             _chromeProcess = null;
         }
-        
-        
+
+        ~ChromeProcess()
+        {
+            Dispose();
+        }
+
+
         /// <summary>
         ///     Resets the <see cref="DefaultArguments" /> to their default settings
         /// </summary>
@@ -238,7 +289,7 @@ namespace ChromeHtmlToPdfLib
             SetDefaultArgument("--remote-debugging-port", "0");
             SetWindowSize(WindowSize.HD_1366_768);
         }
-        
+
         /// <summary>
         ///     Adds an extra conversion argument to the <see cref="DefaultArguments" />
         /// </summary>
@@ -252,10 +303,11 @@ namespace ChromeHtmlToPdfLib
             if (!DefaultArguments.Contains(argument, StringComparison.CurrentCultureIgnoreCase))
                 DefaultArguments.Add(argument);
         }
-        
+
         // <summary>
-        ///     Adds an extra conversion argument with value to the <see cref="DefaultArguments" />
-        ///     or replaces it when it already exists
+        /// Adds an extra conversion argument with value to the
+        /// <see cref="DefaultArguments" />
+        /// or replaces it when it already exists
         /// </summary>
         /// <remarks>
         ///     This is a one time only default setting which can not be changed when doing multiple conversions.
@@ -266,7 +318,8 @@ namespace ChromeHtmlToPdfLib
         private void SetDefaultArgument(string argument, string value)
         {
             if (IsChromeRunning)
-                throw new ChromeException($"Chrome is already running, you need to set the parameter '{argument}' before staring Chrome");
+                throw new ChromeException(
+                    $"Chrome is already running, you need to set the parameter '{argument}' before staring Chrome");
 
 
             for (var i = 0; i < DefaultArguments.Count; i++)
@@ -278,7 +331,7 @@ namespace ChromeHtmlToPdfLib
 
             DefaultArguments.Add(argument + $"=\"{value}\"");
         }
-        
+
         /// <summary>
         ///     Sets the viewport size to use when converting
         /// </summary>
@@ -304,7 +357,7 @@ namespace ChromeHtmlToPdfLib
         }
 
         // <summary>
-        ///     Sets the window size to use when converting
+        /// Sets the window size to use when converting
         /// </summary>
         /// <param name="size"></param>
         public void SetWindowSize(WindowSize size)
@@ -369,9 +422,10 @@ namespace ChromeHtmlToPdfLib
                     throw new ArgumentOutOfRangeException(nameof(size), size, null);
             }
         }
-        
-        
+
+
         #region RemoveArgument
+
         /// <summary>
         ///     Removes the given <paramref name="argument" /> from <see cref="DefaultArguments" />
         /// </summary>
@@ -382,9 +436,11 @@ namespace ChromeHtmlToPdfLib
             if (DefaultArguments.Contains(argument))
                 DefaultArguments.Remove(argument);
         }
+
         #endregion
 
         #region SetProxyServer
+
         /// <summary>
         ///     Instructs Chrome to use the provided proxy server
         /// </summary>
@@ -411,9 +467,11 @@ namespace ChromeHtmlToPdfLib
             _proxyServer = value;
             SetDefaultArgument("--proxy-server", value);
         }
+
         #endregion
 
         #region SetProxyBypassList
+
         /// <summary>
         ///     This tells chrome to bypass any specified proxy for the given semi-colon-separated list of hosts.
         ///     This flag must be used (or rather, only has an effect) in tandem with <see cref="SetProxyServer" />.
@@ -436,9 +494,11 @@ namespace ChromeHtmlToPdfLib
             _proxyBypassList = values;
             SetDefaultArgument("--proxy-bypass-list", values);
         }
+
         #endregion
 
         #region SetProxyPacUrl
+
         /// <summary>
         ///     This tells Chrome to use the PAC file at the specified URL.
         /// </summary>
@@ -454,9 +514,11 @@ namespace ChromeHtmlToPdfLib
         {
             SetDefaultArgument("--proxy-pac-url", value);
         }
+
         #endregion
 
         #region SetUserAgent
+
         /// <summary>
         ///     This tells Chrome to use the given user-agent string
         /// </summary>
@@ -468,9 +530,11 @@ namespace ChromeHtmlToPdfLib
         {
             SetDefaultArgument("--user-agent", value);
         }
+
         #endregion
 
         #region SetUser
+
         /// <summary>
         ///     Sets the user under which Chrome wil run. This is useful if you are on a server and
         ///     the user under which the code runs doesn't have access to the internet.
@@ -485,59 +549,9 @@ namespace ChromeHtmlToPdfLib
             _userName = userName;
             _password = password;
         }
+
         #endregion
-        
-        
-        /// <summary>
-        /// Returns a <see cref="WebProxy"/> object
-        /// </summary>
-        public WebProxy WebProxy
-        {
-            get
-            {
-                if (_webProxy != null)
-                    return _webProxy;
 
-                try
-                {
-                    if (string.IsNullOrWhiteSpace(_proxyServer))
-                        return null;
-
-                    NetworkCredential networkCredential = null;
-
-                    string[] bypassList = null;
-
-                    if (_proxyBypassList != null)
-                        bypassList = _proxyBypassList.Split(';');
-
-                    if (!string.IsNullOrWhiteSpace(_userName))
-                    {
-                        string userName = null;
-                        string domain = null;
-
-                        if (_userName.Contains("\\"))
-                        {
-                            domain = _userName.Split('\\')[0];
-                            userName = _userName.Split('\\')[1];
-                        }
-
-                        networkCredential = !string.IsNullOrWhiteSpace(domain)
-                            ? new NetworkCredential(userName, _password, domain)
-                            : new NetworkCredential(userName, _password);
-                    }
-
-                    return networkCredential != null
-                        ? _webProxy = new WebProxy(_proxyServer, true, bypassList, networkCredential)
-                        : _webProxy = new WebProxy(_proxyServer, true, bypassList);
-
-                }
-                catch (Exception exception)
-                {
-                    throw new Exception("Could not configure web proxy", exception);
-                }
-            }
-        }
-        
         /// <summary>
         ///     Start Chrome headless
         /// </summary>
@@ -629,7 +643,7 @@ namespace ChromeHtmlToPdfLib
 
                 _chromeProcess.BeginErrorReadLine();
                 _chromeProcess.BeginOutputReadLine();
-                
+
 
                 if (_conversionTimeout.HasValue)
                     _chromeWaitEvent.WaitOne(_conversionTimeout.Value);
@@ -644,7 +658,6 @@ namespace ChromeHtmlToPdfLib
 
                 WriteToLog("Chrome started");
             }
-            
         }
 
         /// <summary>
@@ -669,7 +682,7 @@ namespace ChromeHtmlToPdfLib
             catch (Exception exception)
             {
                 _chromeEventException = exception;
-                if (_chromeProcess != null) 
+                if (_chromeProcess != null)
                     _chromeProcess.Exited -= _chromeProcess_Exited;
                 _chromeWaitEvent.Set();
             }
@@ -696,7 +709,9 @@ namespace ChromeHtmlToPdfLib
                     _chromeWaitEvent.Set();
                 }
                 else if (!string.IsNullOrWhiteSpace(args.Data))
+                {
                     WriteToLog($"Error: {args.Data}");
+                }
             }
             catch (Exception exception)
             {
@@ -708,7 +723,6 @@ namespace ChromeHtmlToPdfLib
 
         private void WriteToLog(string p0)
         {
-            
         }
 
         /// <summary>
@@ -742,17 +756,18 @@ namespace ChromeHtmlToPdfLib
                 {
                     try
                     {
-                        if(proc.ProcessName.ToLower().Contains("chrome") &&
-                               proc.StartInfo.Environment.ContainsKey(UniqueEnviromentKey))
+                        if (proc.ProcessName.ToLower().Contains("chrome") &&
+                            proc.StartInfo.Environment.ContainsKey(UniqueEnviromentKey))
                             proc.Kill();
                     }
                     catch
                     {
                         //Nothing
                     }
+
                     return false;
                 });
-            
+
             try
             {
                 _chromeProcess.CloseMainWindow();

@@ -10,7 +10,6 @@ using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Xhtml;
 using ChromeHtmlToPdfLib.Settings;
-using Image = System.Drawing.Image;
 
 namespace ChromeHtmlToPdfLib.Helpers
 {
@@ -19,41 +18,30 @@ namespace ChromeHtmlToPdfLib.Helpers
     /// </summary>
     public class ImageHelper
     {
-        #region Fields
-        /// <summary>
-        ///     When set then logging is written to this stream
-        /// </summary>
-        private readonly Stream _logStream;
+        #region Constructor
 
         /// <summary>
-        ///     An unique id that can be used to identify the logging of the converter when
-        ///     calling the code from multiple threads and writing all the logging to the same file
+        ///     Makes this object and sets its needed properties
         /// </summary>
-        public string InstanceId { get; set; }
+        /// <param name="tempDirectory">When set then this directory will be used for temporary files</param>
+        /// <param name="logStream">When set then logging is written to this stream</param>
+        /// <param name="webProxy">The webproxy to use when downloading</param>
+        /// <param name="timeout"></param>
+        public ImageHelper(DirectoryInfo tempDirectory = null,
+            Stream logStream = null,
+            WebProxy webProxy = null,
+            int? timeout = null)
+        {
+            _tempDirectory = tempDirectory;
+            _logStream = logStream;
+            _webProxy = webProxy;
+            _timeout = timeout ?? 30000;
+        }
 
-        /// <summary>
-        ///     The temp folder
-        /// </summary>
-        private readonly DirectoryInfo _tempDirectory;
-
-        /// <summary>
-        ///     The web client to use when downloading from the Internet
-        /// </summary>
-        private WebClient _webClient;
-
-        /// <summary>
-        ///     The web proxy to use
-        /// </summary>
-        private readonly WebProxy _webProxy;
-
-        /// <summary>
-        ///     The timeout in milliseconds before this application aborts the downloading
-        ///     of images
-        /// </summary>
-        private readonly int _timeout;
         #endregion
 
         #region Properties
+
         /// <summary>
         ///     The web client to use when downloading from the Internet
         /// </summary>
@@ -71,31 +59,13 @@ namespace ChromeHtmlToPdfLib.Helpers
                 return _webClient;
             }
         }
-        #endregion
 
-        #region Constructor
-        /// <summary>
-        ///     Makes this object and sets its needed properties
-        /// </summary>
-        /// <param name="tempDirectory">When set then this directory will be used for temporary files</param>
-        /// <param name="logStream">When set then logging is written to this stream</param>
-        /// <param name="webProxy">The webproxy to use when downloading</param>
-        /// <param name="timeout"></param>
-        public ImageHelper(DirectoryInfo tempDirectory = null,
-                           Stream logStream = null,
-                           WebProxy webProxy = null,
-                           int? timeout = null)
-        {
-            _tempDirectory = tempDirectory;
-            _logStream = logStream;
-            _webProxy = webProxy;
-            _timeout = timeout ?? 30000;
-        }
         #endregion
 
         #region ParseValue
+
         /// <summary>
-        /// Parses the value from the given value
+        ///     Parses the value from the given value
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
@@ -103,31 +73,39 @@ namespace ChromeHtmlToPdfLib.Helpers
         {
             value = value.Replace("px", string.Empty);
             value = value.Replace(" ", string.Empty);
-            return int.TryParse(value, out int result) ? result : 0;
+            return int.TryParse(value, out var result) ? result : 0;
         }
+
         #endregion
 
         #region ValidateImages
+
         /// <summary>
-        /// Validates all images if they are rotated correctly (when <paramref name="rotate"/> is set
-        /// to <c>true</c>) and fit on the given <paramref name="pageSettings"/>.
-        /// If an image does need to be rotated or does not fit then a local copy is maded of 
-        /// the <paramref name="inputUri"/> file.
+        ///     Validates all images if they are rotated correctly (when <paramref name="rotate" /> is set
+        ///     to <c>true</c>) and fit on the given <paramref name="pageSettings" />.
+        ///     If an image does need to be rotated or does not fit then a local copy is maded of
+        ///     the <paramref name="inputUri" /> file.
         /// </summary>
         /// <param name="inputUri">The uri of the webpage</param>
         /// <param name="resize">When set to <c>true</c> then an image is resized when needed</param>
-        /// <param name="rotate">When set to <c>true</c> then the EXIF information of an
-        /// image is read and when needed the image is automaticly rotated</param>
-        /// <param name="pageSettings"><see cref="PageSettings"/></param>
-        /// <param name="outputUri">The outputUri when this method returns <c>false</c> otherwise
-        ///     <c>null</c> is returned</param>
+        /// <param name="rotate">
+        ///     When set to <c>true</c> then the EXIF information of an
+        ///     image is read and when needed the image is automaticly rotated
+        /// </param>
+        /// <param name="pageSettings">
+        ///     <see cref="PageSettings" />
+        /// </param>
+        /// <param name="outputUri">
+        ///     The outputUri when this method returns <c>false</c> otherwise
+        ///     <c>null</c> is returned
+        /// </param>
         /// <returns>Returns <c>false</c> when the images dit not fit the page, otherwise <c>true</c></returns>
-        /// <exception cref="WebException">Raised when the webpage from <paramref name="inputUri"/> could not be downloaded</exception>
+        /// <exception cref="WebException">Raised when the webpage from <paramref name="inputUri" /> could not be downloaded</exception>
         public bool ValidateImages(ConvertUri inputUri,
-                                   bool resize,
-                                   bool rotate,
-                                   PageSettings pageSettings,
-                                   out ConvertUri outputUri)
+            bool resize,
+            bool rotate,
+            PageSettings pageSettings,
+            out ConvertUri outputUri)
         {
             WriteToLog("Validating all images if they need to be rotated and if they fit the page");
             outputUri = null;
@@ -151,7 +129,8 @@ namespace ChromeHtmlToPdfLib.Helpers
             var context = BrowsingContext.New(config);
 
             var document = inputUri.Encoding != null
-                ? context.OpenAsync(m => m.Content(webpage).Header("Content-Type", $"text/html; charset={inputUri.Encoding.WebName}")).Result
+                ? context.OpenAsync(m =>
+                    m.Content(webpage).Header("Content-Type", $"text/html; charset={inputUri.Encoding.WebName}")).Result
                 : context.OpenAsync(m => m.Content(webpage)).Result;
 
             var unchangedImages = new List<IHtmlImageElement>();
@@ -187,6 +166,7 @@ namespace ChromeHtmlToPdfLib.Helpers
                             htmlImage.DisplayHeight = image.Height;
                             changed = true;
                         }
+
                         width = image.Width;
                         height = image.Height;
 
@@ -199,7 +179,7 @@ namespace ChromeHtmlToPdfLib.Helpers
                             htmlImage.Source = new Uri(fileName).ToString();
                         }
                     }
-                    
+
                     if (resize)
                     {
                         if (height == 0 && width == 0)
@@ -231,7 +211,8 @@ namespace ChromeHtmlToPdfLib.Helpers
 
                             if (image == null) continue;
                             image = ScaleImage(image, (int) maxWidth);
-                            WriteToLog($"Image resized to width {image.Width} and height {image.Height} and saved to location '{fileName}'");
+                            WriteToLog(
+                                $"Image resized to width {image.Width} and height {image.Height} and saved to location '{fileName}'");
                             image.Save(fileName);
                             htmlImage.DisplayWidth = image.Width;
                             htmlImage.DisplayHeight = image.Height;
@@ -255,7 +236,7 @@ namespace ChromeHtmlToPdfLib.Helpers
             foreach (var unchangedImage in unchangedImages)
             {
                 var imageSource = new Uri(unchangedImage.Source);
-                using(var image = GetImage(imageSource, localDirectory))
+                using (var image = GetImage(imageSource, localDirectory))
                 {
                     if (localDirectory != null)
                     {
@@ -284,34 +265,38 @@ namespace ChromeHtmlToPdfLib.Helpers
                 using (var fileStream = new FileStream(outputFile, FileMode.CreateNew, FileAccess.Write))
                 {
                     if (inputUri.Encoding != null)
-                    {
                         using (var textWriter = new StreamWriter(fileStream, inputUri.Encoding))
+                        {
                             document.ToHtml(textWriter, new AutoSelectedMarkupFormatter());
-                    }
+                        }
                     else
                         using (var textWriter = new StreamWriter(fileStream))
+                        {
                             document.ToHtml(textWriter, new AutoSelectedMarkupFormatter());
-
+                        }
                 }
 
                 return false;
             }
             catch (Exception exception)
             {
-                WriteToLog($"Could not generate new html file '{outputFile}', error: {ExceptionHelpers.GetInnerException(exception)}");
+                WriteToLog(
+                    $"Could not generate new html file '{outputFile}', error: {ExceptionHelpers.GetInnerException(exception)}");
                 return true;
             }
         }
+
         #endregion
 
         #region GetImage
+
         /// <summary>
-        /// Returns the <see cref="Image"/> for the given <paramref name="imageUri"/>
+        ///     Returns the <see cref="Image" /> for the given <paramref name="imageUri" />
         /// </summary>
         /// <param name="imageUri"></param>
         /// <param name="localDirectory"></param>
         /// <returns></returns>
-        private Image GetImage(Uri imageUri, string localDirectory) 
+        private Image GetImage(Uri imageUri, string localDirectory)
         {
             WriteToLog($"Getting image from uri '{imageUri}'");
 
@@ -335,11 +320,13 @@ namespace ChromeHtmlToPdfLib.Helpers
                 {
                     case "https":
                     case "http":
-                        using (var webStream = WebClient.OpenReadTaskAsync(imageUri).Timeout(_timeout).GetAwaiter().GetResult())
+                        using (var webStream = WebClient.OpenReadTaskAsync(imageUri).Timeout(_timeout).GetAwaiter()
+                            .GetResult())
                         {
                             if (webStream != null)
                                 return Image.FromStream(webStream, true, false);
                         }
+
                         break;
 
                     default:
@@ -354,11 +341,13 @@ namespace ChromeHtmlToPdfLib.Helpers
 
             return null;
         }
+
         #endregion
 
         #region ScaleImage
+
         /// <summary>
-        /// Scales the image to the prefered max width
+        ///     Scales the image to the prefered max width
         /// </summary>
         /// <param name="image"></param>
         /// <param name="maxWidth"></param>
@@ -366,26 +355,32 @@ namespace ChromeHtmlToPdfLib.Helpers
         private Image ScaleImage(Image image, double maxWidth)
         {
             var ratio = maxWidth / image.Width;
-            var newWidth = (int)(image.Width * ratio);
+            var newWidth = (int) (image.Width * ratio);
             if (newWidth == 0) newWidth = 1;
-            var newHeight = (int)(image.Height * ratio);
+            var newHeight = (int) (image.Height * ratio);
             if (newHeight == 0) newHeight = 1;
             var newImage = new Bitmap(newWidth, newHeight);
 
             using (var graphic = Graphics.FromImage(newImage))
+            {
                 graphic.DrawImage(image, 0, 0, newWidth, newHeight);
+            }
 
             return newImage;
         }
+
         #endregion
 
         #region RotateImageByExifOrientationData
+
         /// <summary>
-        /// Rotate the given bitmap according to Exif Orientation data
+        ///     Rotate the given bitmap according to Exif Orientation data
         /// </summary>
         /// <param name="image">source image</param>
-        /// <param name="updateExifData">Set it to <c>true</c> to update image Exif data after rotation 
-        /// (default is <c>false</c>)</param>
+        /// <param name="updateExifData">
+        ///     Set it to <c>true</c> to update image Exif data after rotation
+        ///     (default is <c>false</c>)
+        /// </param>
         /// <returns>Returns <c>true</c> when the image is rotated</returns>
         private bool RotateImageByExifOrientationData(Image image, bool updateExifData = true)
         {
@@ -429,16 +424,18 @@ namespace ChromeHtmlToPdfLib.Helpers
 
             image.RotateFlip(rotateFlipType);
             WriteToLog($"Image rotated with {rotateFlipType}");
-                
+
             // Remove Exif orientation tag (if requested)
             if (updateExifData) image.RemovePropertyItem(orientationId);
             return true;
-        }       
+        }
+
         #endregion
 
         #region DownloadString
+
         /// <summary>
-        ///     Downloads from the given <paramref name="sourceUri"/> and it as a string
+        ///     Downloads from the given <paramref name="sourceUri" /> and it as a string
         /// </summary>
         /// <param name="sourceUri"></param>
         /// <returns></returns>
@@ -457,11 +454,13 @@ namespace ChromeHtmlToPdfLib.Helpers
                 return null;
             }
         }
+
         #endregion
 
         #region GetTempFile
+
         /// <summary>
-        /// Returns a temporary file
+        ///     Returns a temporary file
         /// </summary>
         /// <param name="extension">The extension (e.g. .html)</param>
         /// <returns></returns>
@@ -470,9 +469,11 @@ namespace ChromeHtmlToPdfLib.Helpers
             var tempFile = Guid.NewGuid() + extension;
             return Path.Combine(_tempDirectory?.FullName ?? Path.GetTempPath(), tempFile);
         }
+
         #endregion
 
         #region WriteToLog
+
         /// <summary>
         ///     Writes a line and linefeed to the <see cref="_logStream" />
         /// </summary>
@@ -480,12 +481,50 @@ namespace ChromeHtmlToPdfLib.Helpers
         private void WriteToLog(string message)
         {
             if (_logStream == null) return;
-            var line = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fff") + (InstanceId != null ? " - " + InstanceId : string.Empty) + " - " +
+            var line = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fff") +
+                       (InstanceId != null ? " - " + InstanceId : string.Empty) + " - " +
                        message + Environment.NewLine;
             var bytes = Encoding.UTF8.GetBytes(line);
             _logStream.Write(bytes, 0, bytes.Length);
             _logStream.Flush();
         }
+
+        #endregion
+
+        #region Fields
+
+        /// <summary>
+        ///     When set then logging is written to this stream
+        /// </summary>
+        private readonly Stream _logStream;
+
+        /// <summary>
+        ///     An unique id that can be used to identify the logging of the converter when
+        ///     calling the code from multiple threads and writing all the logging to the same file
+        /// </summary>
+        public string InstanceId { get; set; }
+
+        /// <summary>
+        ///     The temp folder
+        /// </summary>
+        private readonly DirectoryInfo _tempDirectory;
+
+        /// <summary>
+        ///     The web client to use when downloading from the Internet
+        /// </summary>
+        private WebClient _webClient;
+
+        /// <summary>
+        ///     The web proxy to use
+        /// </summary>
+        private readonly WebProxy _webProxy;
+
+        /// <summary>
+        ///     The timeout in milliseconds before this application aborts the downloading
+        ///     of images
+        /// </summary>
+        private readonly int _timeout;
+
         #endregion
     }
 }

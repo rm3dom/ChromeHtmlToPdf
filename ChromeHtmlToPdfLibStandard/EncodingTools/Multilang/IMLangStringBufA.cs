@@ -4,7 +4,10 @@ using System.Runtime.InteropServices;
 
 namespace ChromeHtmlToPdfLib.EncodingTools.Multilang
 {
-    [ComImport, Guid("D24ACD23-BA72-11D0-B188-00AA0038C969"), InterfaceType((short) 1), ComConversionLoss]
+    [ComImport]
+    [Guid("D24ACD23-BA72-11D0-B188-00AA0038C969")]
+    [InterfaceType(1)]
+    [ComConversionLoss]
     public interface IMLangStringBufA
     {
         [MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]

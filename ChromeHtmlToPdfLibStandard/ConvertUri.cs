@@ -5,15 +5,10 @@ using System.Text;
 namespace ChromeHtmlToPdfLib
 {
     /// <summary>
-    /// <inheritdoc cref="Uri"/>
+    ///     <inheritdoc cref="Uri" />
     /// </summary>
     public class ConvertUri : Uri
     {
-        /// <summary>
-        ///     The encoding of the file that will be converted
-        /// </summary>
-        public Encoding Encoding { get; }
-
         public ConvertUri(string uriString) : base(uriString)
         {
         }
@@ -40,16 +35,6 @@ namespace ChromeHtmlToPdfLib
                 : Encoding.Unicode;
         }
 
-#pragma warning disable CS0618 // Type or member is obsolete
-        public ConvertUri(string uriString, bool dontEscape) : base(uriString, dontEscape)
-        {
-        }
-
-        public ConvertUri(Uri baseUri, string relativeUri, bool dontEscape) : base(baseUri, relativeUri, dontEscape)
-        {
-        }
-#pragma warning restore CS0618 // Type or member is obsolete
-
         public ConvertUri(string uriString, UriKind uriKind) : base(uriString, uriKind)
         {
         }
@@ -62,8 +47,24 @@ namespace ChromeHtmlToPdfLib
         {
         }
 
-        protected ConvertUri(SerializationInfo serializationInfo, StreamingContext streamingContext) : base(serializationInfo, streamingContext)
+        protected ConvertUri(SerializationInfo serializationInfo, StreamingContext streamingContext) : base(
+            serializationInfo, streamingContext)
         {
         }
+
+        /// <summary>
+        ///     The encoding of the file that will be converted
+        /// </summary>
+        public Encoding Encoding { get; }
+
+#pragma warning disable CS0618 // Type or member is obsolete
+        public ConvertUri(string uriString, bool dontEscape) : base(uriString, dontEscape)
+        {
+        }
+
+        public ConvertUri(Uri baseUri, string relativeUri, bool dontEscape) : base(baseUri, relativeUri, dontEscape)
+        {
+        }
+#pragma warning restore CS0618 // Type or member is obsolete
     }
 }

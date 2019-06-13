@@ -9,20 +9,10 @@ namespace ChromeHtmlToPdfLib.EncodingTools
 {
     public class Detector
     {
-        #region Fields
-        // this only contains ascii, default windows code page and unicode
-        public int[] PreferedEncodingsForStream;
-
-        // this contains all codepages, sorted by preference and byte usage 
-        public int[] PreferedEncodings;
-
-        // this contains all codepages, sorted by preference and byte usage 
-        public int[] AllEncodings;
-        #endregion
-
         #region Constructor
+
         /// <summary>
-        /// Static constructor that fills the default preferred codepages
+        ///     Static constructor that fills the default preferred codepages
         /// </summary>
         public Detector()
         {
@@ -51,24 +41,22 @@ namespace ChromeHtmlToPdfLib.EncodingTools
             // this one does include cyrilic (strange but true)
             allEncodings.Add(50220);
             mimeEcodings.Add(50220);
-            
+
 
             // always allow unicode flavours for streams (they all have a preamble)
             streamEcodings.Add(Encoding.Unicode.CodePage);
             foreach (var enc in Encoding.GetEncodings())
-            {
                 if (!streamEcodings.Contains(enc.CodePage))
                 {
                     var encoding = Encoding.GetEncoding(enc.CodePage);
                     if (encoding.GetPreamble().Length > 0)
                         streamEcodings.Add(enc.CodePage);
                 }
-            }
 
 
             // stream is done here
             PreferedEncodingsForStream = streamEcodings.ToArray();
-            
+
             // all singlebyte encodings
             foreach (var encoding in Encoding.GetEncodings())
             {
@@ -79,27 +67,19 @@ namespace ChromeHtmlToPdfLib.EncodingTools
                     allEncodings.Add(encoding.CodePage);
 
                 // only add iso and IBM encodings to mime encodings 
-                if (encoding.CodePage <= 1258)
-                {
-                    mimeEcodings.Add(encoding.CodePage);
-                }
+                if (encoding.CodePage <= 1258) mimeEcodings.Add(encoding.CodePage);
             }
 
             // add the rest (multibyte)
             foreach (var encoding in Encoding.GetEncodings())
-            {
                 if (!encoding.GetEncoding().IsSingleByte)
                 {
                     if (!allEncodings.Contains(encoding.CodePage))
                         allEncodings.Add(encoding.CodePage);
 
                     // only add iso and IBM encodings to mime encodings 
-                    if (encoding.CodePage <= 1258)
-                    {
-                        mimeEcodings.Add(encoding.CodePage);
-                    }
+                    if (encoding.CodePage <= 1258) mimeEcodings.Add(encoding.CodePage);
                 }
-            }
 
             // add unicodes
             mimeEcodings.Add(Encoding.Unicode.CodePage);
@@ -108,11 +88,13 @@ namespace ChromeHtmlToPdfLib.EncodingTools
             PreferedEncodings = mimeEcodings.ToArray();
             AllEncodings = allEncodings.ToArray();
         }
+
         #endregion
 
         #region IsAscii
+
         /// <summary>
-        /// Checks if specified string data is acii data.
+        ///     Checks if specified string data is acii data.
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
@@ -123,18 +105,106 @@ namespace ChromeHtmlToPdfLib.EncodingTools
                 return true;
 
             foreach (var c in data)
-            {
                 if (c > 127)
                     return false;
-            }
 
             return true;
         }
+
+        #endregion
+
+        #region ReadTextFile
+
+        /// <summary>
+        ///     Opens a text file and returns the content
+        ///     encoded in the most probable encoding
+        /// </summary>
+        /// <param name="path">path to the source file</param>
+        /// <returns>the text content of the file</returns>
+        public string ReadTextFile(string path)
+        {
+            if (path == null)
+                throw new ArgumentNullException(nameof(path));
+
+            using (Stream fs = File.Open(path, FileMode.Open))
+            {
+                var rawData = new byte[fs.Length];
+                var encoding = DetectInputCodepage(rawData);
+                return encoding.GetString(rawData);
+            }
+        }
+
+        #endregion
+
+        #region OpenTextFile
+
+        /// <summary>
+        ///     Returns a stream reader for the given
+        ///     text file with the best encoding applied
+        /// </summary>
+        /// <param name="path">path to the file</param>
+        /// <returns>a StreamReader for the file</returns>
+        public StreamReader OpenTextFile(string path)
+        {
+            if (path == null)
+                throw new ArgumentNullException("path");
+            return OpenTextStream(File.Open(path, FileMode.Open));
+        }
+
+        #endregion
+
+        #region OpenTextStream
+
+        /// <summary>
+        ///     Creates a stream reader from a stream and detects
+        ///     the encoding form the first bytes in the stream
+        /// </summary>
+        /// <param name="stream">a stream to wrap</param>
+        /// <returns>the newly created StreamReader</returns>
+        public StreamReader OpenTextStream(Stream stream)
+        {
+            // check stream parameter
+            if (stream == null)
+                throw new ArgumentNullException("stream");
+            if (!stream.CanSeek)
+                throw new ArgumentException("the stream must support seek operations", "stream");
+
+            // assume default encoding at first place
+
+            // seek to stream start
+            stream.Seek(0, SeekOrigin.Begin);
+
+            // buffer for preamble and up to 512b sample text for dection
+            var buf = new byte[Math.Min(stream.Length, 512)];
+
+            stream.Read(buf, 0, buf.Length);
+            var detectedEncoding = DetectInputCodepage(buf);
+            // seek back to stream start
+            stream.Seek(0, SeekOrigin.Begin);
+
+
+            return new StreamReader(stream, detectedEncoding);
+        }
+
+        #endregion
+
+        #region Fields
+
+        // this only contains ascii, default windows code page and unicode
+        public int[] PreferedEncodingsForStream;
+
+        // this contains all codepages, sorted by preference and byte usage 
+        public int[] PreferedEncodings;
+
+        // this contains all codepages, sorted by preference and byte usage 
+        public int[] AllEncodings;
+
         #endregion
 
         #region GetMostEfficientEncoding
+
         /// <summary>
-        /// Gets the best Encoding for usage in mime encodings
+        ///     Gets the best Encoding for usage in mime encodings
         /// </summary>
         /// <param name="input">text to detect</param>
         /// <returns>the suggested encoding</returns>
@@ -144,7 +214,7 @@ namespace ChromeHtmlToPdfLib.EncodingTools
         }
 
         /// <summary>
-        /// Gets the best ISO Encoding for usage in a stream
+        ///     Gets the best ISO Encoding for usage in a stream
         /// </summary>
         /// <param name="input">text to detect</param>
         /// <returns>the suggested encoding</returns>
@@ -154,7 +224,7 @@ namespace ChromeHtmlToPdfLib.EncodingTools
         }
 
         /// <summary>
-        /// Gets the best fitting encoding from a list of possible encodings
+        ///     Gets the best fitting encoding from a list of possible encodings
         /// </summary>
         /// <param name="input">text to detect</param>
         /// <param name="preferedEncodings">an array of codepages</param>
@@ -179,16 +249,16 @@ namespace ChromeHtmlToPdfLib.EncodingTools
 
                 // unicode smaller?
                 byteCount = Encoding.Unicode.GetByteCount(input);
-                if (byteCount < bestByteCount)
-                {
-                    encoding = Encoding.Unicode;
-                }
+                if (byteCount < bestByteCount) encoding = Encoding.Unicode;
             }
+
             return encoding;
         }
+
         #endregion
 
         #region DetectOutgoingEncoding
+
         public Encoding DetectOutgoingEncoding(string input)
         {
             return DetectOutgoingEncoding(input, PreferedEncodings, true);
@@ -234,9 +304,9 @@ namespace ChromeHtmlToPdfLib.EncodingTools
 
                 // get unmanaged arrays
                 var pPrefEncs = preferedEncodings == null
-                                       ? IntPtr.Zero
-                                       : Marshal.AllocCoTaskMem(sizeof (uint)*preferedEncodings.Length);
-                var pDetectedEncs = Marshal.AllocCoTaskMem(sizeof (uint)*resultCodePages.Length);
+                    ? IntPtr.Zero
+                    : Marshal.AllocCoTaskMem(sizeof(uint) * preferedEncodings.Length);
+                var pDetectedEncs = Marshal.AllocCoTaskMem(sizeof(uint) * resultCodePages.Length);
 
                 try
                 {
@@ -253,11 +323,11 @@ namespace ChromeHtmlToPdfLib.EncodingTools
                         options |= MLCPF.MLDETECTF_PREFERRED_ONLY;
 
                     multilang3.DetectOutboundCodePage(options,
-                                                      input, (uint) input.Length,
-                                                      pPrefEncs,
-                                                      (uint) (preferedEncodings == null ? 0 : preferedEncodings.Length),
-                                                      pDetectedEncs, ref detectedCodepages,
-                                                      ref specialChar);
+                        input, (uint) input.Length,
+                        pPrefEncs,
+                        (uint) (preferedEncodings == null ? 0 : preferedEncodings.Length),
+                        pDetectedEncs, ref detectedCodepages,
+                        ref specialChar);
 
                     // get result
                     if (detectedCodepages > 0)
@@ -278,6 +348,7 @@ namespace ChromeHtmlToPdfLib.EncodingTools
             {
                 Marshal.FinalReleaseComObject(multilang3);
             }
+
             return encoding;
         }
 
@@ -304,8 +375,8 @@ namespace ChromeHtmlToPdfLib.EncodingTools
 
 
                 // get unmanaged arrays
-                var pPrefEncs = Marshal.AllocCoTaskMem(sizeof (uint)*preferedEncodings.Length);
-                var pDetectedEncs = Marshal.AllocCoTaskMem(sizeof (uint)*resultCodePages.Length);
+                var pPrefEncs = Marshal.AllocCoTaskMem(sizeof(uint) * preferedEncodings.Length);
+                var pDetectedEncs = Marshal.AllocCoTaskMem(sizeof(uint) * resultCodePages.Length);
 
                 try
                 {
@@ -313,7 +384,7 @@ namespace ChromeHtmlToPdfLib.EncodingTools
 
                     Marshal.Copy(resultCodePages, 0, pDetectedEncs, resultCodePages.Length);
 
-                    MLCPF options = MLCPF.MLDETECTF_VALID_NLS | MLCPF.MLDETECTF_PREFERRED_ONLY;
+                    var options = MLCPF.MLDETECTF_VALID_NLS | MLCPF.MLDETECTF_PREFERRED_ONLY;
                     if (preserveOrder)
                         options |= MLCPF.MLDETECTF_PRESERVE_ORDER;
 
@@ -321,11 +392,11 @@ namespace ChromeHtmlToPdfLib.EncodingTools
 
                     // finally... call to DetectOutboundCodePage
                     multilang3.DetectOutboundCodePage(options,
-                                                      input, (uint) input.Length,
-                                                      pPrefEncs,
-                                                      (uint) (preferedEncodings.Length),
-                                                      pDetectedEncs, ref detectedCodepages,
-                                                      ref specialChar);
+                        input, (uint) input.Length,
+                        pPrefEncs,
+                        (uint) preferedEncodings.Length,
+                        pDetectedEncs, ref detectedCodepages,
+                        ref specialChar);
 
                     // get result
                     if (detectedCodepages > 0)
@@ -335,7 +406,7 @@ namespace ChromeHtmlToPdfLib.EncodingTools
 
 
                         // get the encodings for the codepages
-                        for (int i = 0; i < detectedCodepages; i++)
+                        for (var i = 0; i < detectedCodepages; i++)
                             result.Add(Encoding.GetEncoding(theResult[i]));
                     }
                 }
@@ -350,14 +421,17 @@ namespace ChromeHtmlToPdfLib.EncodingTools
             {
                 Marshal.FinalReleaseComObject(multilang3);
             }
+
             // nothing found
             return result.ToArray();
         }
+
         #endregion
 
         #region DetectInputCodepage
+
         /// <summary>
-        /// Detect the most probable codepage from an byte array
+        ///     Detect the most probable codepage from an byte array
         /// </summary>
         /// <param name="input">array containing the raw data</param>
         /// <returns>the detected encoding or the default encoding if the detection failed</returns>
@@ -376,7 +450,7 @@ namespace ChromeHtmlToPdfLib.EncodingTools
         }
 
         /// <summary>
-        /// Returns up to maxEncodings codpages that are assumed to be apropriate
+        ///     Returns up to maxEncodings codpages that are assumed to be apropriate
         /// </summary>
         /// <param name="input">array containing the raw data</param>
         /// <param name="maxEncodings">maxiumum number of encodings to detect</param>
@@ -397,13 +471,13 @@ namespace ChromeHtmlToPdfLib.EncodingTools
             if (input.Length < 256)
             {
                 var newInput = new byte[256];
-                var steps = 256/input.Length;
+                var steps = 256 / input.Length;
                 for (var i = 0; i < steps; i++)
-                    Array.Copy(input, 0, newInput, input.Length*i, input.Length);
+                    Array.Copy(input, 0, newInput, input.Length * i, input.Length);
 
-                var rest = 256%input.Length;
+                var rest = 256 % input.Length;
                 if (rest > 0)
-                    Array.Copy(input, 0, newInput, steps*input.Length, rest);
+                    Array.Copy(input, 0, newInput, steps * input.Length, rest);
                 input = newInput;
             }
 
@@ -425,94 +499,23 @@ namespace ChromeHtmlToPdfLib.EncodingTools
 
                 // finally... call to DetectInputCodepage
                 multilang2.DetectInputCodepage(options, 0,
-                                               ref input[0], ref srcLen, ref detectedEncdings[0], ref scores);
+                    ref input[0], ref srcLen, ref detectedEncdings[0], ref scores);
 
                 // get result
                 if (scores > 0)
-                {
                     for (var i = 0; i < scores; i++)
-                    {
                         // add the result
                         result.Add(Encoding.GetEncoding((int) detectedEncdings[i].nCodePage));
-                    }
-                }
             }
             finally
             {
                 Marshal.FinalReleaseComObject(multilang2);
             }
+
             // nothing found
             return result.ToArray();
         }
-        #endregion
 
-        #region ReadTextFile
-        /// <summary>
-        /// Opens a text file and returns the content 
-        /// encoded in the most probable encoding
-        /// </summary>
-        /// <param name="path">path to the source file</param>
-        /// <returns>the text content of the file</returns>
-        public string ReadTextFile(string path)
-        {
-            if (path == null)
-                throw new ArgumentNullException(nameof(path));
-
-            using (Stream fs = File.Open(path, FileMode.Open))
-            {
-                var rawData = new byte[fs.Length];
-                var encoding = DetectInputCodepage(rawData);
-                return encoding.GetString(rawData);
-            }
-        }
-        #endregion
-
-        #region OpenTextFile
-        /// <summary>
-        /// Returns a stream reader for the given
-        /// text file with the best encoding applied
-        /// </summary>
-        /// <param name="path">path to the file</param>
-        /// <returns>a StreamReader for the file</returns>
-        public StreamReader OpenTextFile(string path)
-        {
-            if (path == null)
-                throw new ArgumentNullException("path");
-            return OpenTextStream(File.Open(path, FileMode.Open));
-        }
-        #endregion
-
-        #region OpenTextStream
-        /// <summary>
-        /// Creates a stream reader from a stream and detects
-        /// the encoding form the first bytes in the stream
-        /// </summary>
-        /// <param name="stream">a stream to wrap</param>
-        /// <returns>the newly created StreamReader</returns>
-        public StreamReader OpenTextStream(Stream stream)
-        {
-            // check stream parameter
-            if (stream == null)
-                throw new ArgumentNullException("stream");
-            if (!stream.CanSeek)
-                throw new ArgumentException("the stream must support seek operations", "stream");
-
-            // assume default encoding at first place
-
-            // seek to stream start
-            stream.Seek(0, SeekOrigin.Begin);
-
-            // buffer for preamble and up to 512b sample text for dection
-            var buf = new byte[Math.Min(stream.Length, 512)];
-
-            stream.Read(buf, 0, buf.Length);
-            var detectedEncoding = DetectInputCodepage(buf);
-            // seek back to stream start
-            stream.Seek(0, SeekOrigin.Begin);
-
-
-            return new StreamReader(stream, detectedEncoding);
-        }
         #endregion
     }
 }

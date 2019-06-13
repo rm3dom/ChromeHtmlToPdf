@@ -7,6 +7,8 @@ namespace ChromeHtmlToPdfLib.EncodingTools.Multilang
     {
         public uint uiCodePage;
         public uint uiInternetEncoding;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 50)] public ushort[] wszCharset;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 50)]
+        public ushort[] wszCharset;
     }
 }

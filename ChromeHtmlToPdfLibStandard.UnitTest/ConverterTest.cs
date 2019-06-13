@@ -69,7 +69,6 @@ namespace ChromeHtmlToPdfLibStandard.UnitTest
         {
             using(var chrome = new ChromeProcess())
             {
-                chrome.Start();
 
                 var infile = Guid.NewGuid() + ".xml";
                 infile = Path.Combine(Path.GetTempPath(), infile);
@@ -79,6 +78,7 @@ namespace ChromeHtmlToPdfLibStandard.UnitTest
                 {
                     tasks.Add(Task.Run(() =>
                     {
+                        chrome.Start();
                         var outfile = Guid.NewGuid() + ".pdf";
                         outfile = Path.Combine(Path.GetTempPath(), outfile);
                         ConvertWithProcess(chrome, infile, outfile);

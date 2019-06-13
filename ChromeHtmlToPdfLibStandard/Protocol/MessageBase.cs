@@ -29,21 +29,24 @@ using Newtonsoft.Json;
 namespace ChromeHtmlToPdfLib.Protocol
 {
     /// <summary>
-    /// The base for a <see cref="Message"/>
+    ///     The base for a <see cref="Message" />
     /// </summary>
     public class MessageBase
     {
         #region Properties
+
         /// <summary>
-        /// The message id
+        ///     The message id
         /// </summary>
         [JsonProperty("id")]
         public int Id { get; set; }
+
         #endregion
 
         #region FromJson
+
         /// <summary>
-        /// Returns this object deserialized from the given <paramref name="json"/> string
+        ///     Returns this object deserialized from the given <paramref name="json" /> string
         /// </summary>
         /// <param name="json"></param>
         /// <returns></returns>
@@ -51,17 +54,20 @@ namespace ChromeHtmlToPdfLib.Protocol
         {
             return JsonConvert.DeserializeObject<MessageBase>(json);
         }
+
         #endregion
 
         #region ToJson
+
         /// <summary>
-        /// Returns this object as a JSON string
+        ///     Returns this object as a JSON string
         /// </summary>
         /// <returns></returns>
         public string ToJson()
         {
             return JsonConvert.SerializeObject(this);
         }
+
         #endregion
     }
 }

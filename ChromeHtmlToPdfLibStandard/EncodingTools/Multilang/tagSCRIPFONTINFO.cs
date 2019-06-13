@@ -6,6 +6,8 @@ namespace ChromeHtmlToPdfLib.EncodingTools.Multilang
     public struct tagSCRIPFONTINFO
     {
         public long scripts;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 0x20)] public ushort[] wszFont;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 0x20)]
+        public ushort[] wszFont;
     }
 }

@@ -30,29 +30,14 @@ using Newtonsoft.Json;
 namespace ChromeHtmlToPdfLib.Protocol
 {
     /// <summary>
-    /// The JSON object that is returned from Chrome when calling the <see cref="Converter"/> ConvertToPdf method
+    ///     The JSON object that is returned from Chrome when calling the <see cref="Converter" /> ConvertToPdf method
     /// </summary>
     public class PrintToPdfResponse
     {
-        #region Properties
-        /// <summary>
-        /// <see cref="PrintToPdfResult"/>
-        /// </summary>
-        [JsonProperty("result")]
-        public PrintToPdfResult Result { get; set; }
-
-        /// <summary>
-        /// Returns <see cref="PrintToPdfResult.Data"/> as array of bytes
-        /// </summary>
-        public byte[] Bytes
-        {
-            get { return Convert.FromBase64String(Result.Data); }    
-        }
-        #endregion
-
         #region FromJson
+
         /// <summary>
-        /// Returns this object deserialized from the given <paramref name="json"/> string
+        ///     Returns this object deserialized from the given <paramref name="json" /> string
         /// </summary>
         /// <param name="json"></param>
         /// <returns></returns>
@@ -60,20 +45,38 @@ namespace ChromeHtmlToPdfLib.Protocol
         {
             return JsonConvert.DeserializeObject<PrintToPdfResponse>(json);
         }
+
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        ///     <see cref="PrintToPdfResult" />
+        /// </summary>
+        [JsonProperty("result")]
+        public PrintToPdfResult Result { get; set; }
+
+        /// <summary>
+        ///     Returns <see cref="PrintToPdfResult.Data" /> as array of bytes
+        /// </summary>
+        public byte[] Bytes => Convert.FromBase64String(Result.Data);
+
         #endregion
     }
 
     /// <summary>
-    /// The result returned from the <see cref="Converter"/> ConvertToPdf  method
+    ///     The result returned from the <see cref="Converter" /> ConvertToPdf  method
     /// </summary>
     public class PrintToPdfResult
     {
         #region Properties
+
         /// <summary>
-        /// The PDF as base64 string
+        ///     The PDF as base64 string
         /// </summary>
         [JsonProperty("data")]
         public string Data { get; set; }
+
         #endregion
     }
 }

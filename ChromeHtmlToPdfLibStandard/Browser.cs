@@ -42,19 +42,8 @@ namespace ChromeHtmlToPdfLib
     /// </remarks>
     internal class Browser : IDisposable
     {
-        #region Fields
-        /// <summary>
-        ///     A connection to the browser (Chrome)
-        /// </summary>
-        private readonly Connection _browserConnection;
-
-        /// <summary>
-        ///     A connection to a page
-        /// </summary>
-        private readonly Connection _pageConnection;
-        #endregion
-
         #region Constructor & destructor
+
         /// <summary>
         ///     Makes this object and sets the Chrome remote debugging url
         /// </summary>
@@ -74,24 +63,41 @@ namespace ChromeHtmlToPdfLib
             var result = _browserConnection.SendAsync(message).Result;
 
             var page = Page.FromJson(result);
-            
+
             // ws://localhost:9222/devtools/page/BA386DE8075EB19DDCE459B4B623FBE7
             // ws://127.0.0.1:50841/devtools/browser/9a919bf0-b243-479d-8396-ede653356e12
             var pageUrl = $"{browser.Scheme}://{browser.Host}:{browser.Port}/devtools/page/{page.Result.TargetId}";
             _pageConnection = new Connection(page.Result.TargetId, pageUrl);
         }
+
+        #endregion
+
+        #region Dispose
+
+        /// <summary>
+        ///     Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+        /// </summary>
+        public void Dispose()
+        {
+            _pageConnection?.Dispose();
+            _browserConnection?.Dispose();
+        }
+
         #endregion
 
         #region NavigateTo
+
         /// <summary>
         ///     Instructs Chrome to navigate to the given <paramref name="uri" />
         /// </summary>
         /// <param name="uri"></param>
-        /// <param name="countdownTimer">If a <see cref="CountdownTimer"/> is set then
-        /// the method will raise an <see cref="ConversionTimedOutException"/> if the 
-        /// <see cref="CountdownTimer"/> reaches zero before finishing navigation</param>
+        /// <param name="countdownTimer">
+        ///     If a <see cref="CountdownTimer" /> is set then
+        ///     the method will raise an <see cref="ConversionTimedOutException" /> if the
+        ///     <see cref="CountdownTimer" /> reaches zero before finishing navigation
+        /// </param>
         /// <exception cref="ChromeException">Raised when an error is returned by Chrome</exception>
-        /// <exception cref="ConversionTimedOutException">Raised when <paramref name="countdownTimer"/> reaches zero</exception>
+        /// <exception cref="ConversionTimedOutException">Raised when <paramref name="countdownTimer" /> reaches zero</exception>
         public void NavigateTo(Uri uri, CountdownTimer countdownTimer = null)
         {
             _pageConnection.SendAsync(new Message {Method = "Page.enable"}).GetAwaiter();
@@ -106,7 +112,6 @@ namespace ChromeHtmlToPdfLib
                 var page = PageEvent.FromJson(data);
 
                 if (!uri.IsFile)
-                {
                     switch (page.Method)
                     {
                         case "Page.lifecycleEvent" when page.Params?.Name == "DOMContentLoaded":
@@ -114,15 +119,11 @@ namespace ChromeHtmlToPdfLib
                             waitEvent.Set();
                             break;
                     }
-                }
                 else if (page.Method == "Page.loadEventFired") waitEvent.Set();
             }
 
             _pageConnection.MessageReceived += MessageReceived;
-            _pageConnection.Closed += (sender, args) =>
-            {
-                waitEvent.Set();
-            };
+            _pageConnection.Closed += (sender, args) => { waitEvent.Set(); };
             _pageConnection.SendAsync(message).GetAwaiter();
 
             if (countdownTimer != null)
@@ -132,15 +133,19 @@ namespace ChromeHtmlToPdfLib
                     throw new ConversionTimedOutException($"The {nameof(NavigateTo)} method timedout");
             }
             else
+            {
                 waitEvent.WaitOne();
+            }
 
             _pageConnection.MessageReceived -= MessageReceived;
 
             _pageConnection.SendAsync(new Message {Method = "Page.disable"}).GetAwaiter();
         }
+
         #endregion
 
         #region WaitForWindowStatus
+
         /// <summary>
         ///     Wait until the javascript window.status is returning the given <paramref name="status" />
         /// </summary>
@@ -185,21 +190,27 @@ namespace ChromeHtmlToPdfLib
 
             return match;
         }
+
         #endregion
 
         #region PrintToPdf
+
         /// <summary>
         ///     Instructs Chrome to print the page
         /// </summary>
-        /// <param name="pageSettings"><see cref="PageSettings" /></param>
-        /// <param name="countdownTimer">If a <see cref="CountdownTimer"/> is set then
-        /// the method will raise an <see cref="ConversionTimedOutException"/> in the 
-        /// <see cref="CountdownTimer"/> reaches zero before finishing the printing to pdf</param>        
+        /// <param name="pageSettings">
+        ///     <see cref="PageSettings" />
+        /// </param>
+        /// <param name="countdownTimer">
+        ///     If a <see cref="CountdownTimer" /> is set then
+        ///     the method will raise an <see cref="ConversionTimedOutException" /> in the
+        ///     <see cref="CountdownTimer" /> reaches zero before finishing the printing to pdf
+        /// </param>
         /// <remarks>
         ///     See https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-printToPDF
         /// </remarks>
         /// <exception cref="ConversionException">Raised when Chrome returns an empty string</exception>
-        /// <exception cref="ConversionTimedOutException">Raised when <paramref name="countdownTimer"/> reaches zero</exception>
+        /// <exception cref="ConversionTimedOutException">Raised when <paramref name="countdownTimer" /> reaches zero</exception>
         internal PrintToPdfResponse PrintToPdf(PageSettings pageSettings, CountdownTimer countdownTimer = null)
         {
             var message = new Message {Method = "Page.printToPDF"};
@@ -220,7 +231,7 @@ namespace ChromeHtmlToPdfLib
             if (!string.IsNullOrEmpty(pageSettings.FooterTemplate))
                 message.AddParameter("footerTemplate", pageSettings.FooterTemplate);
             message.AddParameter("preferCSSPageSize", pageSettings.PreferCSSPageSize);
-            
+
             var result = countdownTimer == null
                 ? _pageConnection.SendAsync(message).GetAwaiter().GetResult()
                 : _pageConnection.SendAsync(message).Timeout(countdownTimer.MillisecondsLeft).GetAwaiter().GetResult();
@@ -232,37 +243,45 @@ namespace ChromeHtmlToPdfLib
 
             return printToPdfResponse;
         }
+
         #endregion
 
         #region Close
+
         /// <summary>
         ///     Instructs Chrome to close
         /// </summary>
-        /// <param name="countdownTimer">If a <see cref="CountdownTimer"/> is set then
-        /// the method will raise an <see cref="ConversionTimedOutException"/> in the 
-        /// <see cref="CountdownTimer"/> reaches zero before Chrome response that it is going to close</param>    
+        /// <param name="countdownTimer">
+        ///     If a <see cref="CountdownTimer" /> is set then
+        ///     the method will raise an <see cref="ConversionTimedOutException" /> in the
+        ///     <see cref="CountdownTimer" /> reaches zero before Chrome response that it is going to close
+        /// </param>
         /// <exception cref="ChromeException">Raised when an error is returned by Chrome</exception>
         public void Close(CountdownTimer countdownTimer = null)
         {
-            var message = new Message{Method = "Target.closeTarget"};
+            var message = new Message {Method = "Target.closeTarget"};
             message.AddParameter("targetId", _pageConnection.TargetId);
-            
+
             if (countdownTimer != null)
                 _pageConnection.SendAsync(message).Timeout(countdownTimer.MillisecondsLeft).GetAwaiter();
             else
                 _pageConnection.SendAsync(message).GetAwaiter();
         }
+
         #endregion
 
-        #region Dispose
+        #region Fields
+
         /// <summary>
-        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+        ///     A connection to the browser (Chrome)
         /// </summary>
-        public void Dispose()
-        {
-            _pageConnection?.Dispose();
-            _browserConnection?.Dispose();
-        }
+        private readonly Connection _browserConnection;
+
+        /// <summary>
+        ///     A connection to a page
+        /// </summary>
+        private readonly Connection _pageConnection;
+
         #endregion
     }
 }

@@ -30,11 +30,96 @@ using ChromeHtmlToPdfLib.Enums;
 namespace ChromeHtmlToPdfLib.Settings
 {
     /// <summary>
-    /// The page settings to use when converting to PDF
+    ///     The page settings to use when converting to PDF
     /// </summary>
     public class PageSettings
     {
+        #region ResetToDefaultSettings
+
+        /// <summary>
+        ///     Resets the <see cref="PageSettings" /> to it's default settings
+        /// </summary>
+        public void ResetToDefaultSettings()
+        {
+            Landscape = false;
+            DisplayHeaderFooter = false;
+            PrintBackground = false;
+            Scale = 1.0;
+            SetPaperFormat(PaperFormat.A4);
+            MarginTop = 0.4;
+            MarginBottom = 0.4;
+            MarginLeft = 0.4;
+            MarginRight = 0.4;
+            PageRanges = string.Empty;
+        }
+
+        #endregion
+
+        #region SetPaperFormat
+
+        /// <summary>
+        ///     Set the given <paramref name="paperFormat" />
+        /// </summary>
+        /// <param name="paperFormat">
+        ///     <see cref="PaperFormat" />
+        /// </param>
+        private void SetPaperFormat(PaperFormat paperFormat)
+        {
+            switch (paperFormat)
+            {
+                case PaperFormat.Letter:
+                    PaperWidth = 8.5;
+                    PaperHeight = 11;
+                    break;
+                case PaperFormat.Legal:
+                    PaperWidth = 8.5;
+                    PaperHeight = 14;
+                    break;
+                case PaperFormat.Tabloid:
+                    PaperWidth = 11;
+                    PaperHeight = 17;
+                    break;
+                case PaperFormat.Ledger:
+                    PaperWidth = 17;
+                    PaperHeight = 11;
+                    break;
+                case PaperFormat.A0:
+                    PaperWidth = 33.1;
+                    PaperHeight = 46.8;
+                    break;
+                case PaperFormat.A1:
+                    PaperWidth = 23.4;
+                    PaperHeight = 33.1;
+                    break;
+                case PaperFormat.A2:
+                    PaperWidth = 16.5;
+                    PaperHeight = 23.4;
+                    break;
+                case PaperFormat.A3:
+                    PaperWidth = 11.7;
+                    PaperHeight = 16.5;
+                    break;
+                case PaperFormat.A4:
+                    PaperWidth = 8.27;
+                    PaperHeight = 11.7;
+                    break;
+                case PaperFormat.A5:
+                    PaperWidth = 5.83;
+                    PaperHeight = 8.27;
+                    break;
+                case PaperFormat.A6:
+                    PaperWidth = 4.13;
+                    PaperHeight = 5.83;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(paperFormat), paperFormat, null);
+            }
+        }
+
+        #endregion
+
         #region Properties
+
         /// <summary>
         ///     Paper orientation. Defaults to false.
         /// </summary>
@@ -44,15 +129,15 @@ namespace ChromeHtmlToPdfLib.Settings
         ///     Display header and footer. Defaults to false.
         /// </summary>
         public bool DisplayHeaderFooter { get; set; }
-        
+
         /// <summary>
-        ///     HTML template for the print header. 
-        ///     Should be valid HTML markup with following classes used to inject printing values into them: 
-        ///     - date - formatted print date - title - document title - url - document location - pageNumber - current page number 
+        ///     HTML template for the print header.
+        ///     Should be valid HTML markup with following classes used to inject printing values into them:
+        ///     - date - formatted print date - title - document title - url - document location - pageNumber - current page number
         ///     - totalPages - total pages in the document For example, would generate span containing the title.
         /// </summary>
         public string HeaderTemplate { get; set; }
-        
+
         /// <summary>
         ///     HTML template for the print footer. Should use the same format as the headerTemplate.
         /// </summary>
@@ -107,19 +192,22 @@ namespace ChromeHtmlToPdfLib.Settings
         ///     Whether to silently ignore invalid but successfully parsed page ranges, such as '3-2'. Defaults to false.
         /// </summary>
         public bool IgnoreInvalidPageRanges { get; set; }
-        
+
         /// <summary>
-        ///     Whether or not to prefer page size as defined by css. Defaults to false, in which case the content will be scaled to fit the paper size.
+        ///     Whether or not to prefer page size as defined by css. Defaults to false, in which case the content will be scaled
+        ///     to fit the paper size.
         /// </summary>
         public bool PreferCSSPageSize { get; set; }
+
         #endregion
 
         #region PageSettings
+
         /// <summary>
-        /// Makes this object and sets all the settings to it's default values
+        ///     Makes this object and sets all the settings to it's default values
         /// </summary>
         /// <remarks>
-        /// Default paper settings are set to <see cref="PaperFormat.A4"/>
+        ///     Default paper settings are set to <see cref="PaperFormat.A4" />
         /// </remarks>
         public PageSettings()
         {
@@ -127,10 +215,10 @@ namespace ChromeHtmlToPdfLib.Settings
         }
 
         /// <summary>
-        /// Makes this object and sets all the settings to it's default values
+        ///     Makes this object and sets all the settings to it's default values
         /// </summary>
         /// <remarks>
-        /// Default paper settings are set to <see cref="PaperFormat.A4"/>
+        ///     Default paper settings are set to <see cref="PaperFormat.A4" />
         /// </remarks>
         /// <param name="paperFormat"></param>
         public PageSettings(PaperFormat paperFormat)
@@ -138,84 +226,7 @@ namespace ChromeHtmlToPdfLib.Settings
             ResetToDefaultSettings();
             SetPaperFormat(paperFormat);
         }
-        #endregion
 
-        #region ResetToDefaultSettings
-        /// <summary>
-        /// Resets the <see cref="PageSettings"/> to it's default settings
-        /// </summary>
-        public void ResetToDefaultSettings()
-        {
-            Landscape = false;
-            DisplayHeaderFooter = false;
-            PrintBackground = false;
-            Scale = 1.0;
-            SetPaperFormat(PaperFormat.A4);
-            MarginTop = 0.4;
-            MarginBottom = 0.4;
-            MarginLeft = 0.4;
-            MarginRight = 0.4;
-            PageRanges = string.Empty;
-        }
-        #endregion
-
-        #region SetPaperFormat
-        /// <summary>
-        /// Set the given <paramref name="paperFormat"/>
-        /// </summary>
-        /// <param name="paperFormat"><see cref="PaperFormat"/></param>
-        private void SetPaperFormat(PaperFormat paperFormat)
-        {
-            switch (paperFormat)
-            {
-                case PaperFormat.Letter:
-                    PaperWidth = 8.5;
-                    PaperHeight = 11;
-                    break;
-                case PaperFormat.Legal:
-                    PaperWidth = 8.5;
-                    PaperHeight = 14;
-                    break;
-                case PaperFormat.Tabloid:
-                    PaperWidth = 11;
-                    PaperHeight = 17;
-                    break;
-                case PaperFormat.Ledger:
-                    PaperWidth = 17;
-                    PaperHeight = 11;
-                    break;
-                case PaperFormat.A0:
-                    PaperWidth = 33.1;
-                    PaperHeight = 46.8;
-                    break;
-                case PaperFormat.A1:
-                    PaperWidth = 23.4;
-                    PaperHeight = 33.1;
-                    break;
-                case PaperFormat.A2:
-                    PaperWidth = 16.5;
-                    PaperHeight = 23.4;
-                    break;
-                case PaperFormat.A3:
-                    PaperWidth = 11.7;
-                    PaperHeight = 16.5;
-                    break;
-                case PaperFormat.A4:
-                    PaperWidth = 8.27;
-                    PaperHeight = 11.7;
-                    break;
-                case PaperFormat.A5:
-                    PaperWidth = 5.83;
-                    PaperHeight = 8.27;
-                    break;
-                case PaperFormat.A6:
-                    PaperWidth = 4.13;
-                    PaperHeight = 5.83;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(paperFormat), paperFormat, null);
-            }
-        }
         #endregion
     }
 }

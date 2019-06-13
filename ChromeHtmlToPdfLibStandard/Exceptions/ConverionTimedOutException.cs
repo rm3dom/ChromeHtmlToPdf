@@ -4,17 +4,25 @@ using System.Runtime.Serialization;
 namespace ChromeHtmlToPdfLib.Exceptions
 {
     /// <summary>
-    /// Raised when the PDF conversion times out
+    ///     Raised when the PDF conversion times out
     /// </summary>
     [Serializable]
-    internal class ConversionTimedOutException : Exception
+    internal class ConversionTimedOutException : ChromePdfConverterException
     {
-        protected ConversionTimedOutException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+        protected ConversionTimedOutException(SerializationInfo info, StreamingContext context) : base(info, context)
+        {
+        }
 
-        internal ConversionTimedOutException() { }
+        internal ConversionTimedOutException()
+        {
+        }
 
-        internal ConversionTimedOutException(string message) : base(message) { }
+        internal ConversionTimedOutException(string message) : base(message)
+        {
+        }
 
-        internal ConversionTimedOutException(string message, Exception innerException) : base(message, innerException) { }
+        internal ConversionTimedOutException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
     }
 }

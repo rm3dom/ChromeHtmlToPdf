@@ -3,7 +3,9 @@ using System.Runtime.InteropServices;
 
 namespace ChromeHtmlToPdfLib.EncodingTools.Multilang
 {
-    [ComImport, Guid("AE5F1430-388B-11D2-8380-00C04F8F5DA1"), InterfaceType((short) 1)]
+    [ComImport]
+    [Guid("AE5F1430-388B-11D2-8380-00C04F8F5DA1")]
+    [InterfaceType(1)]
     public interface IEnumScript
     {
         [MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]

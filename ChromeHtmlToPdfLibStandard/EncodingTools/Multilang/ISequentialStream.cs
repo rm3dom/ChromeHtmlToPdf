@@ -4,7 +4,9 @@ using System.Runtime.InteropServices;
 
 namespace ChromeHtmlToPdfLib.EncodingTools.Multilang
 {
-    [ComImport, Guid("0C733A30-2A1C-11CE-ADE5-00AA0044773D"), InterfaceType((short) 1)]
+    [ComImport]
+    [Guid("0C733A30-2A1C-11CE-ADE5-00AA0044773D")]
+    [InterfaceType(1)]
     public interface ISequentialStream
     {
         [MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]

@@ -6,7 +6,9 @@ using System.Runtime.InteropServices;
 
 namespace ChromeHtmlToPdfLib.EncodingTools.Multilang
 {
-    [ComImport, Guid("0000000C-0000-0000-C000-000000000046"), InterfaceType((short) 1)]
+    [ComImport]
+    [Guid("0000000C-0000-0000-C000-000000000046")]
+    [InterfaceType(1)]
     public interface IStream : ISequentialStream
     {
         [MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]
@@ -22,8 +24,9 @@ namespace ChromeHtmlToPdfLib.EncodingTools.Multilang
         void SetSize([In] _ULARGE_INTEGER libNewSize);
 
         [MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]
-        void RemoteCopyTo([In, MarshalAs(UnmanagedType.Interface)] IStream pstm, [In] _ULARGE_INTEGER cb,
-                          out _ULARGE_INTEGER pcbRead, out _ULARGE_INTEGER pcbWritten);
+        void RemoteCopyTo([In] [MarshalAs(UnmanagedType.Interface)]
+            IStream pstm, [In] _ULARGE_INTEGER cb,
+            out _ULARGE_INTEGER pcbRead, out _ULARGE_INTEGER pcbWritten);
 
         [MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]
         void Commit([In] uint grfCommitFlags);

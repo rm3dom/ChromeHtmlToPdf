@@ -6,7 +6,11 @@ namespace ChromeHtmlToPdfLib.EncodingTools.Multilang
     public struct tagRFC1766INFO
     {
         public uint lcid;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)] public ushort[] wszRfc1766;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 0x20)] public ushort[] wszLocaleName;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)]
+        public ushort[] wszRfc1766;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 0x20)]
+        public ushort[] wszLocaleName;
     }
 }

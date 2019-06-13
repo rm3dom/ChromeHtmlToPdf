@@ -26,38 +26,34 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using ChromeHtmlToPdfLib.Settings;
-using System.Net;
-using System.Runtime.InteropServices;
-using System.Security;
-using System.Threading;
-using ChromeHtmlToPdfLib.Enums;
 using ChromeHtmlToPdfLib.Exceptions;
 using ChromeHtmlToPdfLib.Helpers;
+using ChromeHtmlToPdfLib.Settings;
+
 // ReSharper disable UnusedMember.Global
 
 namespace ChromeHtmlToPdfLib
 {
     /// <summary>
-    /// A converter class around Google Chrome headless to convert html to pdf
+    ///     A converter class around Google Chrome headless to convert html to pdf
     /// </summary>
     public class Converter : IDisposable
     {
-
-        /// <summary>
-        ///     When set then logging is written to this stream
-        /// </summary>
-        private Stream _logStream;
-
-
         /// <summary>
         ///     Handles the communication with Chrome dev tools, this will be null if chrome has not started yet.
         /// </summary>
-        private Browser _browser;
+        private readonly Browser _browser;
+
+
+        private ChromeProcess _chromeProcess;
+
+        /// <summary>
+        ///     The directory used for temporary files
+        /// </summary>
+        private DirectoryInfo _currentTempDirectory;
 
         /// <summary>
         ///     Keeps track is we already disposed our resources
@@ -65,17 +61,9 @@ namespace ChromeHtmlToPdfLib
         private bool _disposed;
 
         /// <summary>
-        ///     When set then this folder is used for temporary files
+        ///     When set then logging is written to this stream
         /// </summary>
-        private string _tempDirectory;
-
-        /// <summary>
-        ///     The directory used for temporary files
-        /// </summary>
-        private DirectoryInfo _currentTempDirectory;
-
-
-        private ChromeProcess _chromeProcess;
+        private Stream _logStream;
 
         /// <summary>
         ///     Used to add the extension of text based files that needed to be wrapped in an HTML PRE
@@ -83,6 +71,10 @@ namespace ChromeHtmlToPdfLib
         /// </summary>
         private List<WrapExtension> _preWrapExtensions = new List<WrapExtension>();
 
+        /// <summary>
+        ///     When set then this folder is used for temporary files
+        /// </summary>
+        private string _tempDirectory;
 
 
         /// <summary>
@@ -109,34 +101,30 @@ namespace ChromeHtmlToPdfLib
         public List<WrapExtension> PreWrapExtensions
         {
             get => _preWrapExtensions;
-            set
-            {
-                _preWrapExtensions = value;
-                //Logger.WriteToLog($"Setting pre wrap extension to '{string.Join(", ", value)}'");
-            } 
+            set => _preWrapExtensions = value;
         }
 
         /// <summary>
-        ///     When set to <c>true</c> then images are resized to fix the given <see cref="PageSettings.PaperWidth"/>
+        ///     When set to <c>true</c> then images are resized to fix the given <see cref="PageSettings.PaperWidth" />
         /// </summary>
         public bool ImageResize { get; set; }
 
         /// <summary>
-        ///     When set to <c>true</c> then images are automatically rotated following the orientation 
+        ///     When set to <c>true</c> then images are automatically rotated following the orientation
         ///     set in the EXIF information
         /// </summary>
         public bool ImageRotate { get; set; }
 
         /// <summary>
         ///     The timeout in milliseconds before this application aborts the downloading
-        ///     of images when the option <see cref="ImageResize"/> and/or <see cref="ImageRotate"/>
+        ///     of images when the option <see cref="ImageResize" /> and/or <see cref="ImageRotate" />
         ///     is being used
         /// </summary>
         public int? ImageDownloadTimeout { get; set; }
 
         /// <summary>
         ///     When set then this directory is used to store temporary files.
-        ///     For example files that are made in combination with <see cref="PreWrapExtensions"/>
+        ///     For example files that are made in combination with <see cref="PreWrapExtensions" />
         /// </summary>
         /// <exception cref="DirectoryNotFoundException">Raised when the given directory does not exists</exception>
         public string TempDirectory
@@ -169,22 +157,118 @@ namespace ChromeHtmlToPdfLib
             }
         }
 
-       
+        #region Dispose
+
+        /// <summary>
+        ///     Disposes the running <see cref="_chromeProcess" />
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            if (_browser != null)
+            {
+                _browser.Close();
+                _browser.Dispose();
+            }
+        }
+
+        #endregion
+
+
+        #region CheckIfOutputFolderExists
+
+        /// <summary>
+        ///     Checks if the path to the given <paramref name="outputFile" /> exists.
+        ///     An <see cref="DirectoryNotFoundException" /> is thrown when the path is not valid
+        /// </summary>
+        /// <param name="outputFile"></param>
+        /// <exception cref="DirectoryNotFoundException"></exception>
+        private void CheckIfOutputFolderExists(string outputFile)
+        {
+            var directory = new FileInfo(outputFile).Directory;
+            if (directory != null && !directory.Exists)
+                throw new DirectoryNotFoundException($"The path '{directory.FullName}' does not exists");
+        }
+
+        #endregion
+
+        #region CheckForPreWrap
+
+        /// <summary>
+        ///     Checks if <see cref="PreWrapExtensions" /> is set and if the extension
+        ///     is inside this list. When in the list then the file is wrapped
+        /// </summary>
+        /// <param name="inputFile"></param>
+        /// <param name="outputFile"></param>
+        /// <returns></returns>
+        private bool CheckForPreWrap(ConvertUri inputFile, out string outputFile)
+        {
+            outputFile = inputFile.LocalPath;
+
+            if (PreWrapExtensions.Count == 0)
+                return false;
+
+            var ext = Path.GetExtension(inputFile.LocalPath);
+
+            if (!PreWrapExtensions.Any(wrapExt =>
+                wrapExt.Wrap && wrapExt.Extension.Equals(ext, StringComparison.InvariantCultureIgnoreCase)))
+                return false;
+
+            var preWrapper = new PreWrapper(GetTempDirectory);
+            outputFile = preWrapper.WrapFile(inputFile.LocalPath, inputFile.Encoding);
+            return true;
+        }
+
+        #endregion
+
+        #region WriteToLog
+
+        /// <summary>
+        ///     Writes a line and linefeed to the <see cref="_logStream" />
+        /// </summary>
+        /// <param name="message">The message to write</param>
+        private void WriteToLog(string message)
+        {
+            if (_logStream == null) return;
+
+            try
+            {
+                var line = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fff") +
+                           (InstanceId != null ? " - " + InstanceId : string.Empty) + " - " +
+                           message + Environment.NewLine;
+                var bytes = Encoding.UTF8.GetBytes(line);
+                _logStream.Write(bytes, 0, bytes.Length);
+                _logStream.Flush();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Ignore
+            }
+        }
+
+        #endregion
 
 
         #region Constructor & Destructor
+
         /// <summary>
         ///     Creates this object and sets it's needed properties
         /// </summary>
-        /// <param name="chromeExeFileName">When set then this has to be tThe full path to the chrome executable.
-        ///      When not set then then the converter tries to find Chrome.exe by first looking in the path
-        ///      where this library exists. After that it tries to find it by looking into the registry</param>
+        /// <param name="chromeExeFileName">
+        ///     When set then this has to be tThe full path to the chrome executable.
+        ///     When not set then then the converter tries to find Chrome.exe by first looking in the path
+        ///     where this library exists. After that it tries to find it by looking into the registry
+        /// </param>
         /// <param name="userProfile">
         ///     If set then this directory will be used to store a user profile.
         ///     Leave blank or set to <c>null</c> if you want to use the default Chrome user profile location
         /// </param>
-        /// <param name="logStream">When set then logging is written to this stream for all conversions. If
-        /// you want a separate log for each conversion then set the log stream on one of the ConvertToPdf" methods</param>
+        /// <param name="logStream">
+        ///     When set then logging is written to this stream for all conversions. If
+        ///     you want a separate log for each conversion then set the log stream on one of the ConvertToPdf" methods
+        /// </param>
         /// <exception cref="FileNotFoundException">Raised when <see cref="chromeExeFileName" /> does not exists</exception>
         /// <exception cref="DirectoryNotFoundException">
         ///     Raised when the <paramref name="userProfile" /> directory is given but
@@ -204,48 +288,44 @@ namespace ChromeHtmlToPdfLib
         {
             Dispose();
         }
-        #endregion
 
-
-        #region CheckIfOutputFolderExists
-        /// <summary>
-        ///     Checks if the path to the given <paramref name="outputFile" /> exists.
-        ///     An <see cref="DirectoryNotFoundException" /> is thrown when the path is not valid
-        /// </summary>
-        /// <param name="outputFile"></param>
-        /// <exception cref="DirectoryNotFoundException"></exception>
-        private void CheckIfOutputFolderExists(string outputFile)
-        {
-            var directory = new FileInfo(outputFile).Directory;
-            if (directory != null && !directory.Exists)
-                throw new DirectoryNotFoundException($"The path '{directory.FullName}' does not exists");
-        }
         #endregion
 
 
         #region ConvertToPdf
+
         /// <summary>
         ///     Converts the given <paramref name="inputUri" /> to PDF
         /// </summary>
         /// <param name="inputUri">The webpage to convert</param>
         /// <param name="outputStream">The output stream</param>
-        /// <param name="pageSettings"><see cref="PageSettings"/></param>
-        /// <param name="waitForWindowStatus">Wait until the javascript window.status has this value before
-        ///     rendering the PDF</param>
+        /// <param name="pageSettings">
+        ///     <see cref="PageSettings" />
+        /// </param>
+        /// <param name="waitForWindowStatus">
+        ///     Wait until the javascript window.status has this value before
+        ///     rendering the PDF
+        /// </param>
         /// <param name="waitForWindowsStatusTimeout"></param>
-        /// <param name="conversionTimeout">An conversion timeout in milliseconds, if the conversion fails
-        ///     to finished in the set amount of time then an <see cref="ConversionTimedOutException"/> is raised</param>
-        /// <param name="logStream">When set then this will give a logging for each conversion. Use the log stream
-        /// option in the constructor if you want one log for all conversions</param>
-        /// <exception cref="ConversionTimedOutException">Raised when <see cref="conversionTimeout"/> is set and the 
-        /// conversion fails to finish in this amount of time</exception>
+        /// <param name="conversionTimeout">
+        ///     An conversion timeout in milliseconds, if the conversion fails
+        ///     to finished in the set amount of time then an <see cref="ConversionTimedOutException" /> is raised
+        /// </param>
+        /// <param name="logStream">
+        ///     When set then this will give a logging for each conversion. Use the log stream
+        ///     option in the constructor if you want one log for all conversions
+        /// </param>
+        /// <exception cref="ConversionTimedOutException">
+        ///     Raised when <see cref="conversionTimeout" /> is set and the
+        ///     conversion fails to finish in this amount of time
+        /// </exception>
         public void ConvertToPdf(ConvertUri inputUri,
-                                 Stream outputStream,
-                                 PageSettings pageSettings,
-                                 string waitForWindowStatus = "",
-                                 int waitForWindowsStatusTimeout = 60000,
-                                 int? conversionTimeout = null,
-                                 Stream logStream = null)
+            Stream outputStream,
+            PageSettings pageSettings,
+            string waitForWindowStatus = "",
+            int waitForWindowsStatusTimeout = 60000,
+            int? conversionTimeout = null,
+            Stream logStream = null)
         {
             _logStream = logStream;
 
@@ -264,9 +344,11 @@ namespace ChromeHtmlToPdfLib
                         break;
 
                     default:
-                        if (!PreWrapExtensions.Any(wrapExt => wrapExt.Extension.Equals(ext, StringComparison.InvariantCultureIgnoreCase)))
-                            throw new ConversionException($"The file '{inputUri.OriginalString}' with extension '{ext}' is not valid. " +
-                                                          "If this is a text based file then add the extension to the PreWrapExtensions");
+                        if (!PreWrapExtensions.Any(wrapExt =>
+                            wrapExt.Extension.Equals(ext, StringComparison.InvariantCultureIgnoreCase)))
+                            throw new ConversionException(
+                                $"The file '{inputUri.OriginalString}' with extension '{ext}' is not valid. " +
+                                "If this is a text based file then add the extension to the PreWrapExtensions");
                         break;
                 }
             }
@@ -279,8 +361,9 @@ namespace ChromeHtmlToPdfLib
                 }
                 else if (ImageResize || ImageRotate)
                 {
-                    var imageHelper = new ImageHelper(GetTempDirectory, _logStream, _chromeProcess.WebProxy, ImageDownloadTimeout)
-                    { InstanceId = InstanceId };
+                    var imageHelper = new ImageHelper(GetTempDirectory, _logStream, _chromeProcess.WebProxy,
+                            ImageDownloadTimeout)
+                        {InstanceId = InstanceId};
                     if (!imageHelper.ValidateImages(inputUri, ImageResize, ImageRotate, pageSettings,
                         out var outputUri))
                         inputUri = outputUri;
@@ -360,24 +443,34 @@ namespace ChromeHtmlToPdfLib
         /// </summary>
         /// <param name="inputUri">The webpage to convert</param>
         /// <param name="outputFile">The output file</param>
-        /// <param name="pageSettings"><see cref="PageSettings"/></param>
-        /// <param name="waitForWindowStatus">Wait until the javascript window.status has this value before
-        ///     rendering the PDF</param>
+        /// <param name="pageSettings">
+        ///     <see cref="PageSettings" />
+        /// </param>
+        /// <param name="waitForWindowStatus">
+        ///     Wait until the javascript window.status has this value before
+        ///     rendering the PDF
+        /// </param>
         /// <param name="waitForWindowsStatusTimeout"></param>
-        /// <param name="conversionTimeout">An conversion timeout in milliseconds, if the conversion fails
-        /// to finished in the set amount of time then an <see cref="ConversionTimedOutException"/> is raised</param>
-        /// <param name="logStream">When set then this will give a logging for each conversion. Use the log stream
-        /// option in the constructor if you want one log for all conversions</param>
-        /// <exception cref="ConversionTimedOutException">Raised when <see cref="conversionTimeout"/> is set and the 
-        /// conversion fails to finish in this amount of time</exception>
+        /// <param name="conversionTimeout">
+        ///     An conversion timeout in milliseconds, if the conversion fails
+        ///     to finished in the set amount of time then an <see cref="ConversionTimedOutException" /> is raised
+        /// </param>
+        /// <param name="logStream">
+        ///     When set then this will give a logging for each conversion. Use the log stream
+        ///     option in the constructor if you want one log for all conversions
+        /// </param>
+        /// <exception cref="ConversionTimedOutException">
+        ///     Raised when <see cref="conversionTimeout" /> is set and the
+        ///     conversion fails to finish in this amount of time
+        /// </exception>
         /// <exception cref="DirectoryNotFoundException"></exception>
         public void ConvertToPdf(ConvertUri inputUri,
-                                 string outputFile,
-                                 PageSettings pageSettings,
-                                 string waitForWindowStatus = "",
-                                 int waitForWindowsStatusTimeout = 60000,
-                                 int? conversionTimeout = null,
-                                 Stream logStream = null)
+            string outputFile,
+            PageSettings pageSettings,
+            string waitForWindowStatus = "",
+            int waitForWindowsStatusTimeout = 60000,
+            int? conversionTimeout = null,
+            Stream logStream = null)
         {
             CheckIfOutputFolderExists(outputFile);
             using (var memoryStream = new MemoryStream())
@@ -423,73 +516,7 @@ namespace ChromeHtmlToPdfLib
         //    _communicator.NavigateTo(inputUri, TODO);
         //    SetDefaultArgument("--screenshot", Path.ChangeExtension(outputFile, ".png"));
         //}
-        #endregion
 
-        #region CheckForPreWrap
-        /// <summary>
-        ///     Checks if <see cref="PreWrapExtensions"/> is set and if the extension
-        ///     is inside this list. When in the list then the file is wrapped
-        /// </summary>
-        /// <param name="inputFile"></param>
-        /// <param name="outputFile"></param>
-        /// <returns></returns>
-        private bool CheckForPreWrap(ConvertUri inputFile, out string outputFile)
-        {
-            outputFile = inputFile.LocalPath;
-
-            if (PreWrapExtensions.Count == 0)
-                return false;
-
-            var ext = Path.GetExtension(inputFile.LocalPath);
-
-            if (!PreWrapExtensions.Any(wrapExt => wrapExt.Wrap && wrapExt.Extension.Equals(ext, StringComparison.InvariantCultureIgnoreCase)))
-                return false;
-
-            var preWrapper = new PreWrapper(GetTempDirectory);
-            outputFile = preWrapper.WrapFile(inputFile.LocalPath, inputFile.Encoding);
-            return true;
-        }
-        #endregion
-
-        #region WriteToLog
-        /// <summary>
-        ///     Writes a line and linefeed to the <see cref="_logStream" />
-        /// </summary>
-        /// <param name="message">The message to write</param>
-        private void WriteToLog(string message)
-        {
-            if (_logStream == null) return;
-
-            try
-            {
-                var line = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fff") + (InstanceId != null ? " - " + InstanceId : string.Empty) + " - " +
-                           message + Environment.NewLine;
-                var bytes = Encoding.UTF8.GetBytes(line);
-                _logStream.Write(bytes, 0, bytes.Length);
-                _logStream.Flush();
-            }
-            catch (ObjectDisposedException)
-            {
-                // Ignore
-            }
-        }
-        #endregion
-        
-        #region Dispose
-        /// <summary>
-        ///     Disposes the running <see cref="_chromeProcess" />
-        /// </summary>
-        public void Dispose()
-        {
-                if (_disposed) return;
-                _disposed = true;
-                
-                if (_browser != null)
-                {
-                    _browser.Close();
-                    _browser.Dispose();
-                }
-        }
         #endregion
     }
 }

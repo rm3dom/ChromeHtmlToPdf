@@ -29,21 +29,24 @@ using Newtonsoft.Json;
 namespace ChromeHtmlToPdfLib.Protocol
 {
     /// <summary>
-    /// The JSON structure that is returned from Chrome when an Error occurs
+    ///     The JSON structure that is returned from Chrome when an Error occurs
     /// </summary>
     public class Error : MessageBase
     {
         #region Properties
+
         /// <summary>
-        /// <see cref="InnerError"/>
+        ///     <see cref="InnerError" />
         /// </summary>
         [JsonProperty("error")]
         public InnerError InnerError { get; set; }
+
         #endregion
 
         #region FromJson
+
         /// <summary>
-        /// Returns this object deserialized from the given <paramref name="json"/> string
+        ///     Returns this object deserialized from the given <paramref name="json" /> string
         /// </summary>
         /// <param name="json"></param>
         /// <returns></returns>
@@ -51,27 +54,29 @@ namespace ChromeHtmlToPdfLib.Protocol
         {
             return JsonConvert.DeserializeObject<Error>(json);
         }
+
         #endregion
     }
 
     /// <summary>
-    /// The inner error
+    ///     The inner error
     /// </summary>
     public class InnerError
     {
         #region Properties
+
         /// <summary>
-        /// The error code
+        ///     The error code
         /// </summary>
         [JsonProperty("code")]
         public double Code { get; set; }
 
         /// <summary>
-        /// The error message
+        ///     The error message
         /// </summary>
         [JsonProperty("message")]
         public string Message { get; set; }
+
         #endregion
     }
 }
-

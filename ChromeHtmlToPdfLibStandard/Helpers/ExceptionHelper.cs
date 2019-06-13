@@ -10,6 +10,7 @@ namespace ChromeHtmlToPdfLib.Helpers
     public static class ExceptionHelpers
     {
         #region GetCurrentMethodName
+
         /// <summary>
         ///     Returns the last called method
         /// </summary>
@@ -31,9 +32,11 @@ namespace ChromeHtmlToPdfLib.Helpers
 
             return string.Empty;
         }
+
         #endregion
 
         #region GetInnerException
+
         /// <summary>
         ///     Returns the full exception with it's inner exceptions as a string
         /// </summary>
@@ -49,6 +52,7 @@ namespace ChromeHtmlToPdfLib.Helpers
                 result += GetInnerException(exception.InnerException);
             return result;
         }
+
         #endregion
     }
 }

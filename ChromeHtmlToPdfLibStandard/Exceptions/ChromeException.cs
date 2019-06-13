@@ -31,27 +31,35 @@ using ChromeHtmlToPdfLib.Protocol;
 namespace ChromeHtmlToPdfLib.Exceptions
 {
     /// <summary>
-    /// Raised when an error is returned from Chrome
+    ///     Raised when an error is returned from Chrome
     /// </summary>
     [Serializable]
-    public class ChromeException : Exception
+    public class ChromeException : ChromePdfConverterException
     {
-        /// <summary>
-        /// Returns the error code that is returned from Chrome
-        /// </summary>
-        public double Code { get; }
+        protected ChromeException(SerializationInfo info, StreamingContext context) : base(info, context)
+        {
+        }
 
-        protected ChromeException(SerializationInfo info, StreamingContext context) : base(info, context) { }
-
-        public ChromeException() { }
+        public ChromeException()
+        {
+        }
 
         public ChromeException(Error error) : base(error.InnerError.Message)
         {
             Code = error.InnerError.Code;
         }
 
-        public ChromeException(string message) : base(message) { }
+        public ChromeException(string message) : base(message)
+        {
+        }
 
-        public ChromeException(string message, Exception innerException) : base(message, innerException) { }
+        public ChromeException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
+
+        /// <summary>
+        ///     Returns the error code that is returned from Chrome
+        /// </summary>
+        public double Code { get; }
     }
 }

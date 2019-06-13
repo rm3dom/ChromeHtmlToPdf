@@ -3,7 +3,9 @@ using System.Runtime.InteropServices;
 
 namespace ChromeHtmlToPdfLib.EncodingTools.Multilang
 {
-    [ComImport, Guid("359F3443-BD4A-11D0-B188-00AA0038C969"), InterfaceType((short) 1)]
+    [ComImport]
+    [Guid("359F3443-BD4A-11D0-B188-00AA0038C969")]
+    [InterfaceType(1)]
     public interface IMLangCodePages
     {
         [MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]
@@ -11,7 +13,7 @@ namespace ChromeHtmlToPdfLib.EncodingTools.Multilang
 
         [MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]
         void GetStrCodePages([In] ref ushort pszSrc, [In] int cchSrc, [In] uint dwPriorityCodePages,
-                             out uint pdwCodePages, out int pcchCodePages);
+            out uint pdwCodePages, out int pcchCodePages);
 
         [MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]
         void CodePageToCodePages([In] uint uCodePage, out uint pdwCodePages);

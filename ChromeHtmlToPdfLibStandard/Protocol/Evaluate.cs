@@ -30,20 +30,10 @@ namespace ChromeHtmlToPdfLib.Protocol
 {
     public class Evaluate : MessageBase
     {
-        #region Properties
-        [JsonProperty("result")]
-        public EvaluateResult Result { get; set; }
-
-        /// <summary>
-        /// The method that we want to execute in Chrome
-        /// </summary>
-        [JsonProperty("method")]
-        public string Method { get; set; }
-        #endregion
-
         #region FromJson
+
         /// <summary>
-        /// Returns this object deserialized from the given <paramref name="json"/> string
+        ///     Returns this object deserialized from the given <paramref name="json" /> string
         /// </summary>
         /// <param name="json"></param>
         /// <returns></returns>
@@ -51,25 +41,43 @@ namespace ChromeHtmlToPdfLib.Protocol
         {
             return JsonConvert.DeserializeObject<Evaluate>(json);
         }
+
+        #endregion
+
+        #region Properties
+
+        [JsonProperty("result")]
+        public EvaluateResult Result { get; set; }
+
+        /// <summary>
+        ///     The method that we want to execute in Chrome
+        /// </summary>
+        [JsonProperty("method")]
+        public string Method { get; set; }
+
         #endregion
     }
 
     public class EvaluateResult
     {
         #region Propreties
+
         [JsonProperty("result")]
         public EvaluateInnerResult Result { get; set; }
+
         #endregion
     }
 
     public class EvaluateInnerResult
     {
         #region Properties
+
         [JsonProperty("type")]
         public string Type { get; set; }
 
         [JsonProperty("value")]
         public string Value { get; set; }
+
         #endregion
     }
 }
