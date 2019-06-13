@@ -25,9 +25,7 @@
 //
 
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using ChromeHtmlToPdfLib.Exceptions;
 using ChromeHtmlToPdfLib.Helpers;
@@ -47,8 +45,7 @@ namespace ChromeHtmlToPdfLib
         /// </summary>
         private readonly Browser _browser;
 
-
-        private ChromeProcess _chromeProcess;
+        private readonly ChromeProcess _chromeProcess;
 
         /// <summary>
         ///     The directory used for temporary files
@@ -66,15 +63,38 @@ namespace ChromeHtmlToPdfLib
         private Stream _logStream;
 
         /// <summary>
-        ///     Used to add the extension of text based files that needed to be wrapped in an HTML PRE
-        ///     tag so that they can be opened by Chrome
-        /// </summary>
-        private List<WrapExtension> _preWrapExtensions = new List<WrapExtension>();
-
-        /// <summary>
         ///     When set then this folder is used for temporary files
         /// </summary>
         private string _tempDirectory;
+
+
+        /// <summary>
+        ///     Creates this object and sets it's needed properties
+        /// </summary>
+        /// <param name="chromeExeFileName">
+        ///     When set then this has to be tThe full path to the chrome executable.
+        ///     When not set then then the converter tries to find Chrome.exe by first looking in the path
+        ///     where this library exists. After that it tries to find it by looking into the registry
+        /// </param>
+        /// <param name="userProfile">
+        ///     If set then this directory will be used to store a user profile.
+        ///     Leave blank or set to <c>null</c> if you want to use the default Chrome user profile location
+        /// </param>
+        /// <param name="logStream">
+        ///     When set then logging is written to this stream for all conversions. If
+        ///     you want a separate log for each conversion then set the log stream on one of the ConvertToPdf" methods
+        /// </param>
+        /// <exception cref="FileNotFoundException">Raised when <see cref="chromeExeFileName" /> does not exists</exception>
+        /// <exception cref="DirectoryNotFoundException">
+        ///     Raised when the <paramref name="userProfile" /> directory is given but
+        ///     does not exists
+        /// </exception>
+        public Converter(ChromeProcess chrome, Stream logStream = null)
+        {
+            _chromeProcess = chrome;
+            _logStream = logStream;
+            _browser = new Browser(chrome.InstanceHandle);
+        }
 
 
         /// <summary>
@@ -83,44 +103,6 @@ namespace ChromeHtmlToPdfLib
         /// </summary>
         public string InstanceId { get; set; }
 
-        /// <summary>
-        ///     Used to add the extension of text based files that needed to be wrapped in an HTML PRE
-        ///     tag so that they can be opened by Chrome
-        /// </summary>
-        /// <example>
-        ///     <code>
-        ///     var converter = new Converter()
-        ///     converter.PreWrapExtensions.Add(".txt");
-        ///     converter.PreWrapExtensions.Add(".log");
-        ///     // etc ...
-        ///     </code>
-        /// </example>
-        /// <remarks>
-        ///     The extensions are used case insensitive
-        /// </remarks>
-        public List<WrapExtension> PreWrapExtensions
-        {
-            get => _preWrapExtensions;
-            set => _preWrapExtensions = value;
-        }
-
-        /// <summary>
-        ///     When set to <c>true</c> then images are resized to fix the given <see cref="PageSettings.PaperWidth" />
-        /// </summary>
-        public bool ImageResize { get; set; }
-
-        /// <summary>
-        ///     When set to <c>true</c> then images are automatically rotated following the orientation
-        ///     set in the EXIF information
-        /// </summary>
-        public bool ImageRotate { get; set; }
-
-        /// <summary>
-        ///     The timeout in milliseconds before this application aborts the downloading
-        ///     of images when the option <see cref="ImageResize" /> and/or <see cref="ImageRotate" />
-        ///     is being used
-        /// </summary>
-        public int? ImageDownloadTimeout { get; set; }
 
         /// <summary>
         ///     When set then this directory is used to store temporary files.
@@ -139,29 +121,8 @@ namespace ChromeHtmlToPdfLib
             }
         }
 
-        /// <summary>
-        ///     Returns a reference to the temp directory
-        /// </summary>
-        private DirectoryInfo GetTempDirectory
-        {
-            get
-            {
-                _currentTempDirectory = _tempDirectory == null
-                    ? new DirectoryInfo(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()))
-                    : new DirectoryInfo(Path.Combine(_tempDirectory, Guid.NewGuid().ToString()));
-
-                if (!_currentTempDirectory.Exists)
-                    _currentTempDirectory.Create();
-
-                return _currentTempDirectory;
-            }
-        }
-
         #region Dispose
 
-        /// <summary>
-        ///     Disposes the running <see cref="_chromeProcess" />
-        /// </summary>
         public void Dispose()
         {
             if (_disposed) return;
@@ -194,34 +155,6 @@ namespace ChromeHtmlToPdfLib
 
         #endregion
 
-        #region CheckForPreWrap
-
-        /// <summary>
-        ///     Checks if <see cref="PreWrapExtensions" /> is set and if the extension
-        ///     is inside this list. When in the list then the file is wrapped
-        /// </summary>
-        /// <param name="inputFile"></param>
-        /// <param name="outputFile"></param>
-        /// <returns></returns>
-        private bool CheckForPreWrap(ConvertUri inputFile, out string outputFile)
-        {
-            outputFile = inputFile.LocalPath;
-
-            if (PreWrapExtensions.Count == 0)
-                return false;
-
-            var ext = Path.GetExtension(inputFile.LocalPath);
-
-            if (!PreWrapExtensions.Any(wrapExt =>
-                wrapExt.Wrap && wrapExt.Extension.Equals(ext, StringComparison.InvariantCultureIgnoreCase)))
-                return false;
-
-            var preWrapper = new PreWrapper(GetTempDirectory);
-            outputFile = preWrapper.WrapFile(inputFile.LocalPath, inputFile.Encoding);
-            return true;
-        }
-
-        #endregion
 
         #region WriteToLog
 
@@ -250,37 +183,6 @@ namespace ChromeHtmlToPdfLib
 
         #endregion
 
-
-        #region Constructor & Destructor
-
-        /// <summary>
-        ///     Creates this object and sets it's needed properties
-        /// </summary>
-        /// <param name="chromeExeFileName">
-        ///     When set then this has to be tThe full path to the chrome executable.
-        ///     When not set then then the converter tries to find Chrome.exe by first looking in the path
-        ///     where this library exists. After that it tries to find it by looking into the registry
-        /// </param>
-        /// <param name="userProfile">
-        ///     If set then this directory will be used to store a user profile.
-        ///     Leave blank or set to <c>null</c> if you want to use the default Chrome user profile location
-        /// </param>
-        /// <param name="logStream">
-        ///     When set then logging is written to this stream for all conversions. If
-        ///     you want a separate log for each conversion then set the log stream on one of the ConvertToPdf" methods
-        /// </param>
-        /// <exception cref="FileNotFoundException">Raised when <see cref="chromeExeFileName" /> does not exists</exception>
-        /// <exception cref="DirectoryNotFoundException">
-        ///     Raised when the <paramref name="userProfile" /> directory is given but
-        ///     does not exists
-        /// </exception>
-        public Converter(ChromeProcess chrome, Stream logStream = null)
-        {
-            _preWrapExtensions = new List<WrapExtension>();
-            _logStream = logStream;
-            _browser = new Browser(chrome.InstanceHandle);
-        }
-
         /// <summary>
         ///     Destructor
         /// </summary>
@@ -288,8 +190,6 @@ namespace ChromeHtmlToPdfLib
         {
             Dispose();
         }
-
-        #endregion
 
 
         #region ConvertToPdf
@@ -327,48 +227,16 @@ namespace ChromeHtmlToPdfLib
             int? conversionTimeout = null,
             Stream logStream = null)
         {
+            _chromeProcess.EnsureRunning();
+
             _logStream = logStream;
 
             if (inputUri.IsFile)
-            {
                 if (!File.Exists(inputUri.OriginalString))
                     throw new FileNotFoundException($"The file '{inputUri.OriginalString}' does not exists");
 
-                var ext = Path.GetExtension(inputUri.OriginalString);
-
-                switch (ext.ToLowerInvariant())
-                {
-                    case ".htm":
-                    case ".html":
-                        // This is ok
-                        break;
-
-                    default:
-                        if (!PreWrapExtensions.Any(wrapExt =>
-                            wrapExt.Extension.Equals(ext, StringComparison.InvariantCultureIgnoreCase)))
-                            throw new ConversionException(
-                                $"The file '{inputUri.OriginalString}' with extension '{ext}' is not valid. " +
-                                "If this is a text based file then add the extension to the PreWrapExtensions");
-                        break;
-                }
-            }
-
             try
             {
-                if (inputUri.IsFile && CheckForPreWrap(inputUri, out var preWrapFile))
-                {
-                    inputUri = new ConvertUri(preWrapFile);
-                }
-                else if (ImageResize || ImageRotate)
-                {
-                    var imageHelper = new ImageHelper(GetTempDirectory, _logStream, _chromeProcess.WebProxy,
-                            ImageDownloadTimeout)
-                        {InstanceId = InstanceId};
-                    if (!imageHelper.ValidateImages(inputUri, ImageResize, ImageRotate, pageSettings,
-                        out var outputUri))
-                        inputUri = outputUri;
-                }
-
                 CountdownTimer countdownTimer = null;
 
                 if (conversionTimeout.HasValue)
@@ -487,35 +355,6 @@ namespace ChromeHtmlToPdfLib
                 WriteToLog($"PDF written to output file '{outputFile}'");
             }
         }
-
-        ///// <summary>
-        /////     Converts the given <see paramref name="inputFile" /> to JPG
-        ///// </summary>
-        ///// <param name="inputFile">The input file to convert to PDF</param>
-        ///// <param name="outputFile">The output file</param>
-        ///// <param name="pageSettings"><see cref="PageSettings"/></param>
-        ///// <returns>The filename with full path to the generated PNG</returns>
-        ///// <exception cref="DirectoryNotFoundException"></exception>
-        //public void ConvertToPng(string inputFile, string outputFile, PageSettings pageSettings)
-        //{
-        //    CheckIfOutputFolderExists(outputFile);
-        //    _communicator.NavigateTo(new Uri("file://" + inputFile), TODO);
-        //    SetDefaultArgument("--screenshot", Path.ChangeExtension(outputFile, ".png"));
-        //}
-
-        ///// <summary>
-        /////     Converts the given <paramref name="inputUri" /> to JPG
-        ///// </summary>
-        ///// <param name="inputUri">The webpage to convert</param>
-        ///// <param name="outputFile">The output file</param>
-        ///// <returns>The filename with full path to the generated PNG</returns>
-        ///// <exception cref="DirectoryNotFoundException"></exception>
-        //public void ConvertToPng(Uri inputUri, string outputFile)
-        //{
-        //    CheckIfOutputFolderExists(outputFile);
-        //    _communicator.NavigateTo(inputUri, TODO);
-        //    SetDefaultArgument("--screenshot", Path.ChangeExtension(outputFile, ".png"));
-        //}
 
         #endregion
     }

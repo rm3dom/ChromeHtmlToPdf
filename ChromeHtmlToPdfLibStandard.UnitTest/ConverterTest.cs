@@ -65,11 +65,11 @@ namespace ChromeHtmlToPdfLibStandard.UnitTest
         }
 
         [Fact]
-        public void StressTest()
+        public void TreadingStressTest()
         {
             using(var chrome = new ChromeProcess())
             {
-
+                chrome.EnsureRunning();
                 var infile = Guid.NewGuid() + ".xml";
                 infile = Path.Combine(Path.GetTempPath(), infile);
                 File.WriteAllText(infile, _xmlFileContent);
@@ -78,7 +78,6 @@ namespace ChromeHtmlToPdfLibStandard.UnitTest
                 {
                     tasks.Add(Task.Run(() =>
                     {
-                        chrome.Start();
                         var outfile = Guid.NewGuid() + ".pdf";
                         outfile = Path.Combine(Path.GetTempPath(), outfile);
                         ConvertWithProcess(chrome, infile, outfile);
@@ -88,6 +87,24 @@ namespace ChromeHtmlToPdfLibStandard.UnitTest
                 Task.WaitAll(tasks.ToArray());
             }
         }
+        
+        [Fact]
+        public void StressTest()
+        {
+            using(var chrome = new ChromeProcess())
+            {
+                chrome.EnsureRunning();
+                var infile = Guid.NewGuid() + ".xml";
+                infile = Path.Combine(Path.GetTempPath(), infile);
+                File.WriteAllText(infile, _xmlFileContent);
+                for (var i = 0; i < 100; i++)
+                {
+                    var outfile = Guid.NewGuid() + ".pdf";
+                    outfile = Path.Combine(Path.GetTempPath(), outfile);
+                    ConvertWithProcess(chrome, infile, outfile);
+                }
+            }
+        }
 
         private void ConvertWithProcess(ChromeProcess process, string infile, string outfile)
         {
@@ -95,8 +112,6 @@ namespace ChromeHtmlToPdfLibStandard.UnitTest
 
             using (var converter = new Converter(process))
             {
-                converter.PreWrapExtensions.Add(new WrapExtension(".xml", false));
-                converter.PreWrapExtensions.Add(new WrapExtension(".txt", false));
                 converter.ConvertToPdf(new ConvertUri(infile), outfile, pageSettings);
             }
 
@@ -108,7 +123,7 @@ namespace ChromeHtmlToPdfLibStandard.UnitTest
         {
             using (var chrome = new ChromeProcess())
             {
-                chrome.Start();
+                chrome.EnsureRunning();
                 ConvertWithProcess(chrome, infile, outfile);
             }
         }

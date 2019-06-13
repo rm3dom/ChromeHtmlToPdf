@@ -67,7 +67,6 @@ namespace ChromeHtmlToPdfLib
         /// </summary>
         private string _proxyBypassList;
 
-
         /// <summary>
         ///     A proxy server
         /// </summary>
@@ -178,56 +177,6 @@ namespace ChromeHtmlToPdfLib
 
                     _chromeProcess.Refresh();
                     return !_chromeProcess.HasExited;
-                }
-            }
-        }
-
-
-        /// <summary>
-        ///     Returns a <see cref="WebProxy" /> object
-        /// </summary>
-        public WebProxy WebProxy
-        {
-            get
-            {
-                if (_webProxy != null)
-                    return _webProxy;
-
-                try
-                {
-                    if (string.IsNullOrWhiteSpace(_proxyServer))
-                        return null;
-
-                    NetworkCredential networkCredential = null;
-
-                    string[] bypassList = null;
-
-                    if (_proxyBypassList != null)
-                        bypassList = _proxyBypassList.Split(';');
-
-                    if (!string.IsNullOrWhiteSpace(_userName))
-                    {
-                        string userName = null;
-                        string domain = null;
-
-                        if (_userName.Contains("\\"))
-                        {
-                            domain = _userName.Split('\\')[0];
-                            userName = _userName.Split('\\')[1];
-                        }
-
-                        networkCredential = !string.IsNullOrWhiteSpace(domain)
-                            ? new NetworkCredential(userName, _password, domain)
-                            : new NetworkCredential(userName, _password);
-                    }
-
-                    return networkCredential != null
-                        ? _webProxy = new WebProxy(_proxyServer, true, bypassList, networkCredential)
-                        : _webProxy = new WebProxy(_proxyServer, true, bypassList);
-                }
-                catch (Exception exception)
-                {
-                    throw new Exception("Could not configure web proxy", exception);
                 }
             }
         }
@@ -424,8 +373,6 @@ namespace ChromeHtmlToPdfLib
         }
 
 
-        #region RemoveArgument
-
         /// <summary>
         ///     Removes the given <paramref name="argument" /> from <see cref="DefaultArguments" />
         /// </summary>
@@ -437,9 +384,6 @@ namespace ChromeHtmlToPdfLib
                 DefaultArguments.Remove(argument);
         }
 
-        #endregion
-
-        #region SetProxyServer
 
         /// <summary>
         ///     Instructs Chrome to use the provided proxy server
@@ -468,9 +412,6 @@ namespace ChromeHtmlToPdfLib
             SetDefaultArgument("--proxy-server", value);
         }
 
-        #endregion
-
-        #region SetProxyBypassList
 
         /// <summary>
         ///     This tells chrome to bypass any specified proxy for the given semi-colon-separated list of hosts.
@@ -495,9 +436,6 @@ namespace ChromeHtmlToPdfLib
             SetDefaultArgument("--proxy-bypass-list", values);
         }
 
-        #endregion
-
-        #region SetProxyPacUrl
 
         /// <summary>
         ///     This tells Chrome to use the PAC file at the specified URL.
@@ -515,9 +453,6 @@ namespace ChromeHtmlToPdfLib
             SetDefaultArgument("--proxy-pac-url", value);
         }
 
-        #endregion
-
-        #region SetUserAgent
 
         /// <summary>
         ///     This tells Chrome to use the given user-agent string
@@ -531,9 +466,6 @@ namespace ChromeHtmlToPdfLib
             SetDefaultArgument("--user-agent", value);
         }
 
-        #endregion
-
-        #region SetUser
 
         /// <summary>
         ///     Sets the user under which Chrome wil run. This is useful if you are on a server and
@@ -550,7 +482,6 @@ namespace ChromeHtmlToPdfLib
             _password = password;
         }
 
-        #endregion
 
         /// <summary>
         ///     Start Chrome headless
@@ -559,7 +490,7 @@ namespace ChromeHtmlToPdfLib
         ///     If Chrome is already running then this step is skipped
         /// </remarks>
         /// <exception cref="ChromeException"></exception>
-        public void Start()
+        public void EnsureRunning()
         {
             lock (mutex)
             {
