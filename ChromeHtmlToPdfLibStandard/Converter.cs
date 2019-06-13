@@ -366,7 +366,7 @@ namespace ChromeHtmlToPdfLib
                          string userProfile = null,
                          Stream logStream = null)
         {
-            _preWrapExtensions = new List<string>();
+            _preWrapExtensions = new List<WrapExtension>();
             _logStream = logStream;
 
             ResetArguments();
