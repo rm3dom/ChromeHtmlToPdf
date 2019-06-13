@@ -16,4 +16,16 @@
       <ProjectReference Include="..\ChromeHtmlToPdfLibStandard\ChromeHtmlToPdfLibStandard.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="TestFiles\Test.html">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="TestFiles\Test.txt">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="TestFiles\Test.xml">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>
