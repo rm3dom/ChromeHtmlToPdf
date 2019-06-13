@@ -294,8 +294,8 @@ namespace ChromeHtmlToPdf
 
             if (options.PreWrapFileExtensions?.Count() == 0)
             {
-                converter.PreWrapExtensions.Add(".txt");
-                converter.PreWrapExtensions.Add(".log");
+                converter.PreWrapExtensions.Add(new WrapExtension(".txt"));
+                converter.PreWrapExtensions.Add(new WrapExtension(".log"));
             }
 
             converter.ImageResize = options.ImageResize;
