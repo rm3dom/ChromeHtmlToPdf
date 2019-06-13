@@ -28,6 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using ChromeHtmlToPdfLib.Settings;
 using System.Net;
@@ -121,7 +122,7 @@ namespace ChromeHtmlToPdfLib
         ///     Used to add the extension of text based files that needed to be wrapped in an HTML PRE
         ///     tag so that they can be opened by Chrome
         /// </summary>
-        private List<string> _preWrapExtensions;
+        private List<WrapExtension> _preWrapExtensions = new List<WrapExtension>();
 
         /// <summary>
         ///     Flag to wait in code when starting Chrome
@@ -135,6 +136,8 @@ namespace ChromeHtmlToPdfLib
         #endregion
 
         #region Properties
+        
+        
         /// <summary>
         ///     Returns <c>true</c> when Chrome is running
         /// </summary>
@@ -177,13 +180,13 @@ namespace ChromeHtmlToPdfLib
         /// <remarks>
         ///     The extensions are used case insensitive
         /// </remarks>
-        public List<string> PreWrapExtensions
+        public List<WrapExtension> PreWrapExtensions
         {
             get => _preWrapExtensions;
             set
             {
                 _preWrapExtensions = value;
-                WriteToLog($"Setting pre wrap extension to '{string.Join(", ", value)}'");
+                //Logger.WriteToLog($"Setting pre wrap extension to '{string.Join(", ", value)}'");
             } 
         }
 
@@ -918,7 +921,7 @@ namespace ChromeHtmlToPdfLib
                         break;
 
                     default:
-                        if (!PreWrapExtensions.Contains(ext, StringComparison.InvariantCultureIgnoreCase))
+                        if (!PreWrapExtensions.Any(wrapExt => wrapExt.Extension.Equals(ext, StringComparison.InvariantCultureIgnoreCase)))
                             throw new ConversionException($"The file '{inputUri.OriginalString}' with extension '{ext}' is not valid. " +
                                                           "If this is a text based file then add the extension to the PreWrapExtensions");
                         break;
@@ -1098,10 +1101,10 @@ namespace ChromeHtmlToPdfLib
 
             var ext = Path.GetExtension(inputFile.LocalPath);
 
-            if (!PreWrapExtensions.Contains(ext, StringComparison.InvariantCultureIgnoreCase))
+            if (!PreWrapExtensions.Any(wrapExt => wrapExt.Wrap && wrapExt.Extension.Equals(ext, StringComparison.InvariantCultureIgnoreCase)))
                 return false;
 
-            var preWrapper = new PreWrapper(GetTempDirectory, _logStream) {InstanceId = InstanceId};
+            var preWrapper = new PreWrapper(GetTempDirectory);
             outputFile = preWrapper.WrapFile(inputFile.LocalPath, inputFile.Encoding);
             return true;
         }
@@ -1191,4 +1194,20 @@ namespace ChromeHtmlToPdfLib
         }
         #endregion
     }
+    
+    #region WrapExtension
+    
+    public class WrapExtension
+    {
+        public WrapExtension(string ext, bool wrap = true)
+        {
+            Extension = ext;
+            Wrap = wrap;
+        }
+
+        public string Extension { get; }
+        public bool Wrap { get; } = true;
+    }
+    
+    #endregion
 }
