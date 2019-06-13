@@ -62,7 +62,7 @@ namespace ChromeHtmlToPdfLib
         internal Browser(Uri browser)
         {
             // Open a websocket to the browser
-            _browserConnection = new Connection(browser.ToString());
+            _browserConnection = new Connection(null, browser.ToString());
 
             var message = new Message
             {
@@ -78,7 +78,7 @@ namespace ChromeHtmlToPdfLib
             // ws://localhost:9222/devtools/page/BA386DE8075EB19DDCE459B4B623FBE7
             // ws://127.0.0.1:50841/devtools/browser/9a919bf0-b243-479d-8396-ede653356e12
             var pageUrl = $"{browser.Scheme}://{browser.Host}:{browser.Port}/devtools/page/{page.Result.TargetId}";
-            _pageConnection = new Connection(pageUrl);
+            _pageConnection = new Connection(page.Result.TargetId, pageUrl);
         }
         #endregion
 
@@ -227,7 +227,7 @@ namespace ChromeHtmlToPdfLib
 
             var printToPdfResponse = PrintToPdfResponse.FromJson(result);
 
-            if (string.IsNullOrEmpty(printToPdfResponse.Result?.Data))
+            if (string.IsNullOrEmpty(printToPdfResponse?.Result?.Data))
                 throw new ConversionException("Conversion failed");
 
             return printToPdfResponse;
@@ -240,16 +240,17 @@ namespace ChromeHtmlToPdfLib
         /// </summary>
         /// <param name="countdownTimer">If a <see cref="CountdownTimer"/> is set then
         /// the method will raise an <see cref="ConversionTimedOutException"/> in the 
-        /// <see cref="CountdownTimer"/> reaches zero before Chrome respons that it is going to close</param>    
+        /// <see cref="CountdownTimer"/> reaches zero before Chrome response that it is going to close</param>    
         /// <exception cref="ChromeException">Raised when an error is returned by Chrome</exception>
         public void Close(CountdownTimer countdownTimer = null)
         {
-            var message = new Message {Method = "Browser.close"};
-
+            var message = new Message{Method = "Target.closeTarget"};
+            message.AddParameter("targetId", _pageConnection.TargetId);
+            
             if (countdownTimer != null)
-                _browserConnection.SendAsync(message).Timeout(countdownTimer.MillisecondsLeft).GetAwaiter();
+                _pageConnection.SendAsync(message).Timeout(countdownTimer.MillisecondsLeft).GetAwaiter();
             else
-                _browserConnection.SendAsync(message).GetAwaiter();
+                _pageConnection.SendAsync(message).GetAwaiter();
         }
         #endregion
 

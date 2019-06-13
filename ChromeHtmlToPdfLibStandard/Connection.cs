@@ -26,6 +26,9 @@ namespace ChromeHtmlToPdfLib
         #region Fields
         private int _messageId;
         private TaskCompletionSource<string> _response;
+        
+        public string TargetId { get; set; }
+
         #endregion
 
         #region Properties
@@ -45,8 +48,9 @@ namespace ChromeHtmlToPdfLib
         /// Makes this object and sets all it's needed properties
         /// </summary>
         /// <param name="url">The url</param>
-        internal Connection(string url)
+        internal Connection(string targetId, string url)
         {
+            TargetId = targetId;
             Url = url;
             WebSocket = new WebSocket(url)
             {
