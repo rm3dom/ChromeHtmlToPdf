@@ -91,8 +91,8 @@ namespace ChromeHtmlToPdfLib
         /// </exception>
         public Converter(ChromeProcess chrome, Stream logStream = null)
         {
-            _chromeProcess.EnsureRunning();
             _chromeProcess = chrome;
+            _chromeProcess.EnsureRunning();
             _logStream = logStream;
             _browser = new Browser(chrome.InstanceHandle);
         }
