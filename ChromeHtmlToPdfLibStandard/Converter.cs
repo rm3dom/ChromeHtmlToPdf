@@ -91,6 +91,7 @@ namespace ChromeHtmlToPdfLib
         /// </exception>
         public Converter(ChromeProcess chrome, Stream logStream = null)
         {
+            _chromeProcess.EnsureRunning();
             _chromeProcess = chrome;
             _logStream = logStream;
             _browser = new Browser(chrome.InstanceHandle);
@@ -227,8 +228,6 @@ namespace ChromeHtmlToPdfLib
             int? conversionTimeout = null,
             Stream logStream = null)
         {
-            _chromeProcess.EnsureRunning();
-
             _logStream = logStream;
 
             if (inputUri.IsFile)
