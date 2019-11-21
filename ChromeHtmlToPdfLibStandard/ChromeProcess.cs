@@ -93,10 +93,10 @@ namespace ChromeHtmlToPdfLib
             _logger = logger;
 
             if (string.IsNullOrWhiteSpace(chromeExeFileName))
-                chromeExeFileName = Path.Combine(ChromePath, "chrome.exe");
+                chromeExeFileName = ChromePath;
 
             if (!File.Exists(chromeExeFileName))
-                throw new FileNotFoundException("Could not find chrome.exe");
+                throw new FileNotFoundException("Could not find chrome");
 
             _chromeExeFileName = chromeExeFileName;
 
@@ -123,6 +123,34 @@ namespace ChromeHtmlToPdfLib
         /// </summary>
         public List<string> DefaultArguments { get; private set; }
 
+        private static bool IsLinux
+        {
+            get
+            {
+                int p = (int) Environment.OSVersion.Platform;
+                return (p == 4) || (p == 6) || (p == 128);
+            }
+        }
+
+        private static string[] LinuxChromePaths = new[]
+        {
+            "/usr/local/sbin",
+            "/usr/local/bin",
+            "/usr/sbin",
+            "/usr/bin",
+            "/sbin",
+            "/bin",
+            "/opt/google/chrome"
+        };
+
+        private static string[] LinuxChromeBinNames = new[]
+        {
+            "google-chrome",
+            "chrome",
+            "chromium",
+            "chromium-browser"
+        };
+        
         /// <summary>
         ///     Returns the path to Chrome, <c>null</c> will be returned if Chrome could not be found
         /// </summary>
@@ -134,6 +162,21 @@ namespace ChromeHtmlToPdfLib
                 if (!string.IsNullOrEmpty(_chromeLocation))
                     return _chromeLocation;
 
+                if (IsLinux)
+                {
+                    foreach (var path in LinuxChromePaths)
+                    {
+                        foreach (var bin in LinuxChromeBinNames)
+                        {
+                            if (File.Exists(Path.Combine(path, bin)))
+                                return Path.Combine(path, bin);
+                        }
+                    }
+                    throw new ChromeException("Unable to locate chrome, try setting ChromeLocationDirectory");
+                }
+                
+                //Else Windows
+
                 var currentPath =
                     // ReSharper disable once AssignNullToNotNullAttribute
                     new Uri(Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetName().CodeBase)).LocalPath;
@@ -143,7 +186,7 @@ namespace ChromeHtmlToPdfLib
 
                 if (File.Exists(chrome))
                 {
-                    _chromeLocation = currentPath;
+                    _chromeLocation = chrome;
                     return _chromeLocation;
                 }
 
@@ -151,14 +194,14 @@ namespace ChromeHtmlToPdfLib
 
                 if (File.Exists(chrome))
                 {
-                    _chromeLocation = @"c:\Program Files (x86)\Google\Chrome\Application\";
+                    _chromeLocation = chrome;
                     return _chromeLocation;
                 }
 
                 if (!string.IsNullOrEmpty(ChromeLocationDirectory)
                     && File.Exists(Path.Combine(ChromeLocationDirectory, "chrome.exe")))
                 {
-                    _chromeLocation = ChromeLocationDirectory;
+                    _chromeLocation = Path.Combine(ChromeLocationDirectory, "chrome.exe");
                     return _chromeLocation;
                 }
 
@@ -180,8 +223,16 @@ namespace ChromeHtmlToPdfLib
                     if (_chromeProcess == null)
                         return false;
 
-                    _chromeProcess.Refresh();
-                    return !_chromeProcess.HasExited;
+                    try
+                    {
+                        _chromeProcess.Refresh();
+                        return !_chromeProcess.HasExited;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogWarning($"Failed to get chrome status {ex}");
+                        return false;
+                    }
                 }
             }
         }
@@ -524,35 +575,43 @@ namespace ChromeHtmlToPdfLib
                     // ReSharper disable once AssignNullToNotNullAttribute
                     WorkingDirectory = workingDirectory,
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    LoadUserProfile = false
+                    RedirectStandardError = true
                 };
 
-                processStartInfo.Environment[UniqueEnviromentKey] = UniqueEnviromentKey;
-
-                if (!string.IsNullOrWhiteSpace(_userName))
+                try
                 {
-                    var userName = string.Empty;
-                    var domain = string.Empty;
-
-                    if (_userName.Contains("\\"))
+                    processStartInfo.LoadUserProfile = false;
+                    
+                    if (!string.IsNullOrWhiteSpace(_userName))
                     {
-                        userName = _userName.Split('\\')[1];
-                        domain = _userName.Split('\\')[0];
+                        var userName = string.Empty;
+                        var domain = string.Empty;
+
+                        if (_userName.Contains("\\"))
+                        {
+                            userName = _userName.Split('\\')[1];
+                            domain = _userName.Split('\\')[0];
+                        }
+
+                        WriteToLog($"Starting Chrome with username '{userName}' on domain '{domain}'");
+
+                        processStartInfo.Domain = domain;
+                        processStartInfo.UserName = userName;
+
+                        var secureString = new SecureString();
+                        foreach (var t in _password)
+                            secureString.AppendChar(t);
+
+                        processStartInfo.Password = secureString;
+                        processStartInfo.LoadUserProfile = true;
                     }
-
-                    WriteToLog($"Starting Chrome with username '{userName}' on domain '{domain}'");
-
-                    processStartInfo.Domain = domain;
-                    processStartInfo.UserName = userName;
-
-                    var secureString = new SecureString();
-                    foreach (var t in _password)
-                        secureString.AppendChar(t);
-
-                    processStartInfo.Password = secureString;
-                    processStartInfo.LoadUserProfile = true;
                 }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning($"Failed to set user info {ex.Message}");
+                }
+
+                processStartInfo.Environment[UniqueEnviromentKey] = UniqueEnviromentKey;
 
                 _chromeProcess.StartInfo = processStartInfo;
 
