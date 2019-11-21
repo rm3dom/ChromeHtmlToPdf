@@ -57,12 +57,28 @@ namespace ChromeHtmlToPdfLib
             {
                 Method = "Target.createTarget"
             };
-
             message.Parameters.Add("url", "about:blank");
 
-            var result = _browserConnection.SendAsync(message).Result;
-
-            var page = Page.FromJson(result);
+            Page page = null;
+            var result = "";
+            var count = 0;
+            while (count < 3)
+            {
+                count++;
+                result = _browserConnection.SendAsync(message).Result;
+                page = Page.FromJson(result);
+                if (page?.Result?.TargetId == null)
+                {
+                    Thread.Sleep(TimeSpan.FromSeconds(5));
+                }
+                else
+                {
+                    break;
+                }
+            }
+            
+            if(page?.Result?.TargetId == null)
+                throw new NullReferenceException($"Failed to open a page, null. Url: {browser}, Result is: {result}");
 
             // ws://localhost:9222/devtools/page/BA386DE8075EB19DDCE459B4B623FBE7
             // ws://127.0.0.1:50841/devtools/browser/9a919bf0-b243-479d-8396-ede653356e12

@@ -30,6 +30,7 @@ using System.Text;
 using ChromeHtmlToPdfLib.Exceptions;
 using ChromeHtmlToPdfLib.Helpers;
 using ChromeHtmlToPdfLib.Settings;
+using Microsoft.Extensions.Logging;
 
 // ReSharper disable UnusedMember.Global
 
@@ -48,11 +49,6 @@ namespace ChromeHtmlToPdfLib
         private readonly ChromeProcess _chromeProcess;
 
         /// <summary>
-        ///     The directory used for temporary files
-        /// </summary>
-        private DirectoryInfo _currentTempDirectory;
-
-        /// <summary>
         ///     Keeps track is we already disposed our resources
         /// </summary>
         private bool _disposed;
@@ -60,7 +56,7 @@ namespace ChromeHtmlToPdfLib
         /// <summary>
         ///     When set then logging is written to this stream
         /// </summary>
-        private Stream _logStream;
+        private ILogger _logger;
 
         /// <summary>
         ///     When set then this folder is used for temporary files
@@ -80,7 +76,7 @@ namespace ChromeHtmlToPdfLib
         ///     If set then this directory will be used to store a user profile.
         ///     Leave blank or set to <c>null</c> if you want to use the default Chrome user profile location
         /// </param>
-        /// <param name="logStream">
+        /// <param name="logCallback">
         ///     When set then logging is written to this stream for all conversions. If
         ///     you want a separate log for each conversion then set the log stream on one of the ConvertToPdf" methods
         /// </param>
@@ -89,11 +85,11 @@ namespace ChromeHtmlToPdfLib
         ///     Raised when the <paramref name="userProfile" /> directory is given but
         ///     does not exists
         /// </exception>
-        public Converter(ChromeProcess chrome, Stream logStream = null)
+        public Converter(ChromeProcess chrome, ILogger logger = null)
         {
             _chromeProcess = chrome;
             _chromeProcess.EnsureRunning();
-            _logStream = logStream;
+            _logger = logger;
             _browser = new Browser(chrome.InstanceHandle);
         }
 
@@ -160,26 +156,12 @@ namespace ChromeHtmlToPdfLib
         #region WriteToLog
 
         /// <summary>
-        ///     Writes a line and linefeed to the <see cref="_logStream" />
+        ///     Writes a line and linefeed to the <see cref="_logger" />
         /// </summary>
         /// <param name="message">The message to write</param>
         private void WriteToLog(string message)
         {
-            if (_logStream == null) return;
-
-            try
-            {
-                var line = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fff") +
-                           (InstanceId != null ? " - " + InstanceId : string.Empty) + " - " +
-                           message + Environment.NewLine;
-                var bytes = Encoding.UTF8.GetBytes(line);
-                _logStream.Write(bytes, 0, bytes.Length);
-                _logStream.Flush();
-            }
-            catch (ObjectDisposedException)
-            {
-                // Ignore
-            }
+            _logger?.LogDebug($"Instance {InstanceId ?? ""}: {message}");   
         }
 
         #endregion
@@ -212,10 +194,6 @@ namespace ChromeHtmlToPdfLib
         ///     An conversion timeout in milliseconds, if the conversion fails
         ///     to finished in the set amount of time then an <see cref="ConversionTimedOutException" /> is raised
         /// </param>
-        /// <param name="logStream">
-        ///     When set then this will give a logging for each conversion. Use the log stream
-        ///     option in the constructor if you want one log for all conversions
-        /// </param>
         /// <exception cref="ConversionTimedOutException">
         ///     Raised when <see cref="conversionTimeout" /> is set and the
         ///     conversion fails to finish in this amount of time
@@ -225,11 +203,8 @@ namespace ChromeHtmlToPdfLib
             PageSettings pageSettings,
             string waitForWindowStatus = "",
             int waitForWindowsStatusTimeout = 60000,
-            int? conversionTimeout = null,
-            Stream logStream = null)
+            int? conversionTimeout = null)
         {
-            _logStream = logStream;
-
             if (inputUri.IsFile)
                 if (!File.Exists(inputUri.OriginalString))
                     throw new FileNotFoundException($"The file '{inputUri.OriginalString}' does not exists");
@@ -291,18 +266,6 @@ namespace ChromeHtmlToPdfLib
                 WriteToLog($"Error: {ExceptionHelpers.GetInnerException(exception)}'");
                 throw;
             }
-            finally
-            {
-                if (_currentTempDirectory != null)
-                {
-                    _currentTempDirectory.Refresh();
-                    if (_currentTempDirectory.Exists)
-                    {
-                        WriteToLog($"Deleting temporary folder '{_currentTempDirectory.FullName}'");
-                        _currentTempDirectory.Delete(true);
-                    }
-                }
-            }
         }
 
         /// <summary>
@@ -336,14 +299,13 @@ namespace ChromeHtmlToPdfLib
             PageSettings pageSettings,
             string waitForWindowStatus = "",
             int waitForWindowsStatusTimeout = 60000,
-            int? conversionTimeout = null,
-            Stream logStream = null)
+            int? conversionTimeout = null)
         {
             CheckIfOutputFolderExists(outputFile);
             using (var memoryStream = new MemoryStream())
             {
                 ConvertToPdf(inputUri, memoryStream, pageSettings, waitForWindowStatus,
-                    waitForWindowsStatusTimeout, conversionTimeout, logStream);
+                    waitForWindowsStatusTimeout, conversionTimeout);
 
                 using (var fileStream = File.Open(outputFile, FileMode.Create))
                 {

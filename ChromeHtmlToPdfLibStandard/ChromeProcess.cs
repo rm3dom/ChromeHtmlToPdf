@@ -11,6 +11,7 @@ using System.Threading;
 using ChromeHtmlToPdfLib.Enums;
 using ChromeHtmlToPdfLib.Exceptions;
 using ChromeHtmlToPdfLib.Helpers;
+using Microsoft.Extensions.Logging;
 
 namespace ChromeHtmlToPdfLib
 {
@@ -80,12 +81,16 @@ namespace ChromeHtmlToPdfLib
         /// <summary>
         ///     A web proxy
         /// </summary>
-        private WebProxy _webProxy;
+        //private WebProxy _webProxy;
+        
+        private ILogger _logger;
 
 
-        public ChromeProcess(string chromeExeFileName = null, string userProfile = null)
+        public ChromeProcess(string chromeExeFileName = null, string userProfile = null, ILogger logger = null)
         {
             ResetArguments();
+
+            _logger = logger;
 
             if (string.IsNullOrWhiteSpace(chromeExeFileName))
                 chromeExeFileName = Path.Combine(ChromePath, "chrome.exe");
@@ -652,8 +657,9 @@ namespace ChromeHtmlToPdfLib
             }
         }
 
-        private void WriteToLog(string p0)
+        private void WriteToLog(string message)
         {
+            _logger?.LogDebug( $"Chrome PID {_chromeProcess?.Id ?? 0}: {message}");
         }
 
         /// <summary>

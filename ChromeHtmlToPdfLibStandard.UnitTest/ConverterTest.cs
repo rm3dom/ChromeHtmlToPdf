@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ChromeHtmlToPdfLib;
 using ChromeHtmlToPdfLib.Settings;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace ChromeHtmlToPdfLibStandard.UnitTest
@@ -119,7 +120,7 @@ namespace ChromeHtmlToPdfLibStandard.UnitTest
                 throw new Exception($"HTML to PDF conversion failed; No result: {outfile}");
         }
 
-        private void Convert(string infile, string outfile)
+        private void Convert(string infile, string outfile, ILogger logger = null)
         {
             using (var chrome = new ChromeProcess())
             {
